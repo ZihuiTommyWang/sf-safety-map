@@ -1,4 +1,6 @@
 node_modules
 dist
+# Built by scripts/build-data.mjs — the deploy workflow generates it fresh; never commit it.
+public/data/
 *.local
 .DS_Store

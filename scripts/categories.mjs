@@ -70,13 +70,43 @@ const CATEGORY_MAP = {
   'vandalism': 'vandalism',
   'arson': 'arson',
 }
-// Everything not listed above is deliberately dropped: Warrant, Traffic Violation
-// Arrest, Traffic Collision, Non-Criminal, Miscellaneous Investigation, Case Closure,
-// Courtesy Report, Lost Property, Recovered Vehicle, Vehicle Impounded/Misplaced,
-// Fraud, Forgery And Counterfeiting, Embezzlement, Gambling, Liquor Laws,
-// Prostitution, Suspicious Occ/Suspicious, Missing Person, Offences Against The
-// Family And Children, Fire Report, Suicide, Other / Other Offenses /
-// Other Miscellaneous (minus the description rescues below).
+// Raw categories we KNOW we drop, in full. The build fails loudly if SFPD starts
+// sending a substantial category that is neither mapped nor listed here — that's
+// the guard against silent taxonomy drift (e.g. SFPD renaming "Larceny Theft").
+export const KNOWN_DROPPED = new Set([
+  'warrant',
+  'traffic violation arrest',
+  'traffic collision',
+  'non-criminal',
+  'miscellaneous investigation',
+  'case closure',
+  'courtesy report',
+  'lost property',
+  'recovered vehicle',
+  'vehicle impounded',
+  'vehicle misplaced',
+  'fraud',
+  'forgery and counterfeiting',
+  'embezzlement',
+  'gambling',
+  'liquor laws',
+  'prostitution',
+  'suspicious occ',
+  'suspicious',
+  'missing person',
+  'offences against the family and children',
+  'fire report',
+  'suicide',
+  'other',
+  'other offenses',
+  'other miscellaneous',
+  '(null)',
+])
+
+// Raw categories the mapper recognizes at the category level. Rows from these can
+// still be dropped by subcategory/description rules (e.g. shoplifting inside
+// "Larceny Theft") — that's intentional, not drift.
+export const MAPPED_RAW = new Set(Object.keys(CATEGORY_MAP))
 
 /**
  * @param {string|undefined} category  SFPD incident_category

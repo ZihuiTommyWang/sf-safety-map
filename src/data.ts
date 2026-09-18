@@ -16,10 +16,16 @@ export interface Meta {
   minDay: number
   maxDay: number
   total: number
+  /** Reports whose time was not recorded (stored with hour = HOUR_UNKNOWN). */
+  timeUnknown: number
+  hourUnknown: number
   categories: Category[]
   presets: Record<string, PresetGroup>
   counts: Record<string, number>
 }
+
+/** Sentinel stored in the hour column when the report's time was not recorded. */
+export const HOUR_UNKNOWN = 24
 
 export interface Incidents {
   n: number
@@ -55,6 +61,7 @@ export function isoToDay(iso: string): number {
 }
 
 export function formatHour(h: number): string {
+  if (h === HOUR_UNKNOWN) return 'unknown'
   if (h === 0) return '12 AM'
   if (h < 12) return `${h} AM`
   if (h === 12) return '12 PM'
@@ -93,15 +100,28 @@ export interface FilterState {
   scrubHour: number
 }
 
+/**
+ * Reports with an unrecorded time (hour = HOUR_UNKNOWN = 24) are included only
+ * when no time filtering is active: the full 12 AM–11 PM range with the
+ * scrubber off. Any narrower view excludes them rather than lying about when
+ * they happened.
+ */
+function isFullHourRange(f: FilterState): boolean {
+  return f.scrubHour < 0 && f.hourRange[0] === 0 && f.hourRange[1] === 23
+}
+
 export function countFiltered(inc: Incidents, f: FilterState): number {
   const { cat, day, hour } = inc
   const [d0, d1] = f.dayRange
   const [h0, h1] = f.hourRange
+  const allHours = isFullHourRange(f)
   let n = 0
   for (let i = 0; i < inc.n; i++) {
     if (!f.cats.has(cat[i])) continue
     if (day[i] < d0 || day[i] > d1) continue
-    if (f.scrubHour >= 0 ? hour[i] !== f.scrubHour : hour[i] < h0 || hour[i] > h1) continue
+    if (!allHours) {
+      if (f.scrubHour >= 0 ? hour[i] !== f.scrubHour : hour[i] < h0 || hour[i] > h1) continue
+    }
     n++
   }
   return n
@@ -113,8 +133,9 @@ export function toMapFilter(f: FilterState): unknown[] {
   const catExpr = catList.length
     ? ['match', ['get', 'c'], catList, true, false]
     : ['boolean', false]
-  const hourExpr =
-    f.scrubHour >= 0
+  const hourExpr = isFullHourRange(f)
+    ? true
+    : f.scrubHour >= 0
       ? ['==', ['get', 'h'], f.scrubHour]
       : ['all', ['>=', ['get', 'h'], f.hourRange[0]], ['<=', ['get', 'h'], f.hourRange[1]]]
   return [
