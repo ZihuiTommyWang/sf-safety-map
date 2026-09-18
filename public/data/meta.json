@@ -1,9 +1,9 @@
 {
-  "built": "2026-09-18T05:02:50.985Z",
+  "built": "2026-09-18T05:28:24.108Z",
   "day0": "2018-01-01",
   "minDay": 2817,
   "maxDay": 3180,
-  "total": 88962,
+  "total": 49866,
   "categories": [
     {
       "id": "assault",
@@ -18,20 +18,8 @@
       "label": "Robbery"
     },
     {
-      "id": "theft",
-      "label": "Theft"
-    },
-    {
-      "id": "car-break-in",
-      "label": "Car Break-In"
-    },
-    {
-      "id": "vehicle-theft",
-      "label": "Vehicle Theft"
-    },
-    {
-      "id": "burglary",
-      "label": "Burglary"
+      "id": "sex-offenses",
+      "label": "Sex Offenses"
     },
     {
       "id": "weapons",
@@ -42,8 +30,24 @@
       "label": "Drugs"
     },
     {
-      "id": "disorderly",
-      "label": "Disorderly Conduct"
+      "id": "street-disorder",
+      "label": "Street Disorder"
+    },
+    {
+      "id": "theft",
+      "label": "Theft"
+    },
+    {
+      "id": "car-break-in",
+      "label": "Car Break-In & Damage"
+    },
+    {
+      "id": "vehicle-theft",
+      "label": "Vehicle Theft"
+    },
+    {
+      "id": "burglary",
+      "label": "Burglary"
     },
     {
       "id": "vandalism",
@@ -52,34 +56,6 @@
     {
       "id": "arson",
       "label": "Arson"
-    },
-    {
-      "id": "sex-offenses",
-      "label": "Sex Offenses"
-    },
-    {
-      "id": "fraud",
-      "label": "Fraud"
-    },
-    {
-      "id": "family",
-      "label": "Family Offenses"
-    },
-    {
-      "id": "missing-person",
-      "label": "Missing Person"
-    },
-    {
-      "id": "suspicious",
-      "label": "Suspicious Activity"
-    },
-    {
-      "id": "traffic",
-      "label": "Traffic"
-    },
-    {
-      "id": "other",
-      "label": "Other"
     }
   ],
   "presets": {
@@ -89,11 +65,10 @@
         "assault",
         "homicide",
         "robbery",
+        "sex-offenses",
         "weapons",
         "drugs",
-        "disorderly",
-        "sex-offenses",
-        "suspicious"
+        "street-disorder"
       ]
     },
     "parking": {
@@ -110,17 +85,7 @@
         "burglary",
         "theft",
         "vandalism",
-        "arson",
-        "fraud"
-      ]
-    },
-    "family": {
-      "label": "Family",
-      "cats": [
-        "family",
-        "missing-person",
-        "sex-offenses",
-        "assault"
+        "arson"
       ]
     },
     "property": {
@@ -137,24 +102,18 @@
     }
   },
   "counts": {
-    "missing-person": 2432,
-    "vehicle-theft": 3383,
-    "suspicious": 1979,
     "burglary": 3759,
-    "other": 25645,
+    "vehicle-theft": 3383,
     "robbery": 1581,
     "assault": 7175,
     "drugs": 9176,
-    "traffic": 1810,
-    "car-break-in": 3742,
-    "family": 1509,
-    "vandalism": 5218,
-    "disorderly": 2511,
+    "car-break-in": 6284,
+    "vandalism": 3340,
+    "street-disorder": 4045,
     "weapons": 1378,
-    "fraud": 3549,
-    "theft": 13541,
+    "theft": 9292,
     "arson": 296,
     "homicide": 44,
-    "sex-offenses": 234
+    "sex-offenses": 113
   }
 }

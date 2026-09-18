@@ -62,7 +62,7 @@ const descIndex = new Map()
 const resIndex = new Map()
 const descs = []
 const resolutions = []
-const unmapped = new Map()
+const dropped = new Map()
 
 function intern(value, index, list) {
   let i = index.get(value)
@@ -86,10 +86,11 @@ for (;;) {
     if (!Number.isFinite(la) || !Number.isFinite(lo)) continue
     if (la < SF.minLat || la > SF.maxLat || lo < SF.minLng || lo > SF.maxLng) continue
 
-    const catId = mapIncident(row.incident_category, row.incident_subcategory)
-    if (catId === 'other' && row.incident_category) {
-      const key = row.incident_category
-      unmapped.set(key, (unmapped.get(key) || 0) + 1)
+    const catId = mapIncident(row.incident_category, row.incident_subcategory, row.incident_description)
+    if (catId === null) {
+      const key = row.incident_category || '(null)'
+      dropped.set(key, (dropped.get(key) || 0) + 1)
+      continue
     }
 
     const d = Math.floor((Date.parse(`${row.incident_date.slice(0, 10)}T00:00:00Z`) - DAY0_UTC) / 86400000)
@@ -140,7 +141,8 @@ await writeFile(new URL('../public/data/meta.json', import.meta.url), JSON.strin
 console.log(`\nWrote ${lat.length} incidents (${cutoffStr} → now)`)
 console.log(`Date range: day ${minDay}–${maxDay}; ${descs.length} unique descriptions`)
 console.log('Category counts:', counts)
-if (unmapped.size) {
-  console.log('\nCategories that fell through to "other":')
-  for (const [k, v] of [...unmapped.entries()].sort((a, b) => b[1] - a[1])) console.log(`  ${k}: ${v}`)
+if (dropped.size) {
+  const total = [...dropped.values()].reduce((a, b) => a + b, 0)
+  console.log(`\nDropped ${total} non-safety reports by raw category:`)
+  for (const [k, v] of [...dropped.entries()].sort((a, b) => b[1] - a[1])) console.log(`  ${k}: ${v}`)
 }

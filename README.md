@@ -15,13 +15,18 @@ Inspired by safemap.io, but built to go further:
 | Shareable filter URLs | ❌ | ✅ |
 | Open methodology & source | ❌ | ✅ |
 | Ads | 🙃 | none |
-| Incidents plotted (12 mo) | ~10k | ~89k |
+| Incidents plotted (12 mo) | ~10k | ~50k |
+| Admin noise (warrants, lost property, traffic stops) filtered out | ❌ | ✅ |
 
 ## How it works
 
 - **Data**: [DataSF Police Incident Reports](https://data.sf.gov/d/wg3w-h783) (2018–present
   dataset), last 12 months, fetched by `scripts/build-data.mjs` into compact columnar JSON
-  (~3 MB, ~550 KB gzipped). A GitHub Action refreshes it nightly and redeploys.
+  (~1.7 MB, ~350 KB gzipped). A GitHub Action refreshes it nightly and redeploys.
+  Only reports that represent real place-based harm are kept: police paperwork (warrants,
+  stops, investigations), non-place-based harm (fraud, harassing calls, domestic violence),
+  perception-only reports, and shoplifting are filtered out — see
+  [`scripts/categories.mjs`](scripts/categories.mjs) for the full philosophy and mapping.
 - **Frontend**: Vite + React + TypeScript + [MapLibre GL](https://maplibre.org/), CARTO
   dark-matter basemap. The heatmap is MapLibre's native heatmap layer; at zoom ≈14.6 it
   dissolves into per-incident dots you can click to read the underlying reports.
