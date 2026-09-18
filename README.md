@@ -1,15 +1,50 @@
 # SF Safety Map
 
-An interactive map of San Francisco safety data — visualize incidents by neighborhood, time, and category.
+**Live: https://zihuitommywang.github.io/sf-safety-map/**
 
-## Ideas / Roadmap
+An interactive safety map of San Francisco built on real SFPD incident reports — free, open
+source, no ads, no tracking, no backend.
 
-- [ ] Pull incident data from [DataSF's police incident reports API](https://data.sfgov.org/Public-Safety/Police-Department-Incident-Reports-2018-to-Present/wg3w-h783)
-- [ ] Render an interactive map (Leaflet or MapLibre)
-- [ ] Heatmap / cluster view of incidents
-- [ ] Filter by category, date range, and time of day
-- [ ] Neighborhood-level summaries
+Inspired by safemap.io, but built to go further:
 
-## Getting Started
+| | safemap.io | SF Safety Map |
+|---|---|---|
+| Heatmap + category/date/time filters | ✅ | ✅ |
+| See the *actual incidents* (zoom → dots → click for details) | ❌ | ✅ |
+| Hour-of-day animation (watch neighborhoods change 2 PM → 2 AM) | ❌ | ✅ |
+| Shareable filter URLs | ❌ | ✅ |
+| Open methodology & source | ❌ | ✅ |
+| Ads | 🙃 | none |
+| Incidents plotted (12 mo) | ~10k | ~89k |
 
-TBD — project scaffolding coming soon.
+## How it works
+
+- **Data**: [DataSF Police Incident Reports](https://data.sf.gov/d/wg3w-h783) (2018–present
+  dataset), last 12 months, fetched by `scripts/build-data.mjs` into compact columnar JSON
+  (~3 MB, ~550 KB gzipped). A GitHub Action refreshes it nightly and redeploys.
+- **Frontend**: Vite + React + TypeScript + [MapLibre GL](https://maplibre.org/), CARTO
+  dark-matter basemap. The heatmap is MapLibre's native heatmap layer; at zoom ≈14.6 it
+  dissolves into per-incident dots you can click to read the underlying reports.
+- **Hosting**: GitHub Pages. There is no server — everything is static.
+
+## Development
+
+```bash
+npm install
+npm run build-data   # fetch fresh incident data from DataSF
+npm run dev          # local dev server
+```
+
+Look-and-feel knobs (heat ramp, category colors, zoom thresholds, presets) live in
+[`src/config.ts`](src/config.ts) and [`scripts/categories.mjs`](scripts/categories.mjs).
+
+## Caveats
+
+Reported incidents ≠ risk: report density also reflects police presence, foot traffic, and
+reporting habits. SFPD anonymizes locations to block/intersection level. See the Methodology
+panel in the app for the full story.
+
+## Credits
+
+Incident data: [DataSF](https://data.sf.gov/) (Public Domain). Basemap © [CARTO](https://carto.com/),
+© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
