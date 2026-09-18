@@ -22,7 +22,11 @@ Inspired by safemap.io, but built to go further:
 
 - **Data**: [DataSF Police Incident Reports](https://data.sf.gov/d/wg3w-h783) (2018–present
   dataset), last 12 months, fetched by `scripts/build-data.mjs` into compact columnar JSON
-  (~1.7 MB, ~350 KB gzipped). A GitHub Action refreshes it nightly and redeploys.
+  (~1.7 MB, ~350 KB gzipped). The deploy workflow fetches fresh data from DataSF on every
+  run (generated data is never committed), a nightly workflow triggers a redeploy, and the
+  build fails loudly — keeping the previous deploy live — if DataSF is down, volumes look
+  wrong, or SFPD's category vocabulary drifts. Reports with unrecorded times (logged by
+  SFPD as exact midnight) are kept on the map but excluded from time-of-day filtering.
   Only reports that represent real place-based harm are kept: police paperwork (warrants,
   stops, investigations), non-place-based harm (fraud, harassing calls, domestic violence),
   perception-only reports, and shoplifting are filtered out — see
