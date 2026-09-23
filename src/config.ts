@@ -10,18 +10,20 @@ export const SF_BOUNDS: [[number, number], [number, number]] = [
 export const INITIAL_ZOOM = 12.2
 export const MIN_ZOOM = 10.5
 
-// Zoom where the heatmap hands off to clickable incident dots.
-export const DOT_ZOOM = 14.6
-
-// Heatmap density ramp (0 → 1). Green = calm, red = hot, like a walkability lens.
-export const HEAT_RAMP: [number, string][] = [
-  [0, 'rgba(0, 0, 0, 0)'],
-  [0.08, 'rgba(26, 82, 44, 0.55)'],
-  [0.3, 'rgba(80, 158, 47, 0.65)'],
-  [0.5, 'rgba(207, 199, 48, 0.7)'],
-  [0.72, 'rgba(235, 137, 28, 0.78)'],
-  [1, 'rgba(220, 46, 38, 0.85)'],
-]
+// "Exposure" firefly rendering: every incident is one amber dot, and dots in
+// dense areas overexpose toward white-hot (like a long-exposure photo). A dot's
+// tier (0–4) is the citywide percentile of its ~140m hex's incident count,
+// recomputed for the active category/date filters.
+export const EXPOSURE = {
+  hexSizeM: 140,
+  // Percentile breakpoints over hexes that have at least one incident.
+  quantiles: [0.55, 0.8, 0.93, 0.985] as const,
+  colors: ['#8a5c22', '#c98f35', '#ffb84d', '#ffd98f', '#fff6e0'] as const,
+  opacity: [0.22, 0.32, 0.5, 0.72, 0.95] as const,
+  radiusZ11: [0.9, 1.0, 1.2, 1.4, 1.6] as const,
+  radiusZ15: [2.3, 2.6, 3.1, 3.6, 4.2] as const,
+  hotGlowColor: '#ffcf70',
+}
 
 // Dot color per display category id (fallback used for anything unlisted).
 export const CATEGORY_COLORS: Record<string, string> = {

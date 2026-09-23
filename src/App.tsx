@@ -4,8 +4,8 @@ import Sidebar from './components/Sidebar'
 import TimeScrubber from './components/TimeScrubber'
 import MethodologyModal from './components/MethodologyModal'
 import type { DataBundle, FilterState } from './data'
-import { loadData, countFiltered, dayToISO, isoToDay, formatHour } from './data'
-import { DEFAULT_PRESET, DOT_ZOOM, CATEGORY_COLORS, FALLBACK_DOT_COLOR } from './config'
+import { loadData, countFiltered, applyTiers, dayToISO, isoToDay, formatHour } from './data'
+import { DEFAULT_PRESET, CATEGORY_COLORS, FALLBACK_DOT_COLOR } from './config'
 
 interface PickedIncident {
   catId: string
@@ -54,16 +54,22 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 720)
   const [methodologyOpen, setMethodologyOpen] = useState(false)
   const [picked, setPicked] = useState<PickedIncident[] | null>(null)
-  const [zoom, setZoom] = useState(0)
+  const [hasPicked, setHasPicked] = useState(false)
+  const [tierVersion, setTierVersion] = useState(0)
 
   useEffect(() => {
     loadData()
       .then((b) => {
         const fromHash = parseHash(b)
-        setCatSel(fromHash.cats ?? new Set(b.meta.presets[DEFAULT_PRESET].cats))
-        setDayRange(fromHash.day ?? [b.meta.minDay, b.meta.maxDay])
+        const cats = fromHash.cats ?? new Set(b.meta.presets[DEFAULT_PRESET].cats)
+        const days = fromHash.day ?? ([b.meta.minDay, b.meta.maxDay] as [number, number])
+        const catIdx = new Set(
+          [...cats].map((id) => b.meta.categories.findIndex((c) => c.id === id)).filter((i) => i >= 0),
+        )
+        applyTiers(b, catIdx, days)
+        setCatSel(cats)
+        setDayRange(days)
         if (fromHash.hour) setHourRange(fromHash.hour)
-        setZoom(12.2)
         setBundle(b)
       })
       .catch((e) => setError(String(e)))
@@ -83,6 +89,27 @@ export default function App() {
       history.replaceState(null, '', `#${params}`)
     }, 300)
   }, [bundle, catSel, dayRange, hourRange])
+
+  // Exposure tiers follow the category/date filters (hour is deliberately
+  // excluded so the scrubber never forces a 50k-point source update).
+  const tierTimer = useRef<number>(undefined)
+  const skipFirstTiers = useRef(true)
+  useEffect(() => {
+    if (!bundle) return
+    if (skipFirstTiers.current) {
+      // loadData already applied tiers for the initial state.
+      skipFirstTiers.current = false
+      return
+    }
+    window.clearTimeout(tierTimer.current)
+    tierTimer.current = window.setTimeout(() => {
+      const catIdx = new Set(
+        [...catSel].map((id) => bundle.meta.categories.findIndex((c) => c.id === id)).filter((i) => i >= 0),
+      )
+      applyTiers(bundle, catIdx, dayRange)
+      setTierVersion((v) => v + 1)
+    }, 250)
+  }, [bundle, catSel, dayRange])
 
   // Hour animation loop.
   useEffect(() => {
@@ -149,6 +176,7 @@ export default function App() {
     }
     items.sort((a, b) => b.day - a.day)
     setPicked(items)
+    setHasPicked(true)
   }
 
   if (error) {
@@ -170,7 +198,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <MapView bundle={bundle} filter={filter} onPick={onPick} onZoom={setZoom} />
+      <MapView bundle={bundle} filter={filter} tierVersion={tierVersion} onPick={onPick} />
 
       <Sidebar
         meta={bundle.meta}
@@ -189,13 +217,13 @@ export default function App() {
       />
 
       <div className="legend">
-        <span>Calmer</span>
+        <span>Quiet</span>
         <div className="legend-bar" />
-        <span>More incidents</span>
+        <span>Intense</span>
       </div>
 
-      {zoom < DOT_ZOOM && (
-        <div className="zoom-hint">Zoom in to see individual incidents — click any dot for details</div>
+      {!hasPicked && (
+        <div className="zoom-hint">Every glow is one real incident — click any of them to read what happened</div>
       )}
 
       <TimeScrubber

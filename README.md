@@ -32,8 +32,10 @@ Inspired by safemap.io, but built to go further:
   perception-only reports, and shoplifting are filtered out — see
   [`scripts/categories.mjs`](scripts/categories.mjs) for the full philosophy and mapping.
 - **Frontend**: Vite + React + TypeScript + [MapLibre GL](https://maplibre.org/), CARTO
-  dark-matter basemap. The heatmap is MapLibre's native heatmap layer; at zoom ≈14.6 it
-  dissolves into per-incident dots you can click to read the underlying reports.
+  dark-matter basemap. Rendering is "exposure fireflies": every incident is one amber dot,
+  and dots overexpose toward white-hot as their block's incident density climbs the citywide
+  percentiles — like a long-exposure photo. Nothing is smoothed; every dot is clickable and
+  shows the underlying reports. Density tiers recompute live for the active filters.
 - **Hosting**: GitHub Pages. There is no server — everything is static.
 
 ## Development

@@ -1,28 +1,27 @@
 import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import {
-  MAP_STYLE, SF_CENTER, SF_BOUNDS, INITIAL_ZOOM, MIN_ZOOM, DOT_ZOOM,
-  HEAT_RAMP, CATEGORY_COLORS, FALLBACK_DOT_COLOR,
-} from '../config'
+import { MAP_STYLE, SF_CENTER, SF_BOUNDS, INITIAL_ZOOM, MIN_ZOOM, EXPOSURE } from '../config'
 import type { DataBundle, FilterState } from '../data'
 import { toMapFilter } from '../data'
 
 interface Props {
   bundle: DataBundle
   filter: FilterState
+  /** Bumped whenever exposure tiers were rewritten in bundle.geojson. */
+  tierVersion: number
   onPick: (indices: number[]) => void
-  onZoom: (zoom: number) => void
 }
 
-export default function MapView({ bundle, filter, onPick, onZoom }: Props) {
+const tierMatch = (values: readonly number[]) =>
+  ['match', ['get', 't'], 0, values[0], 1, values[1], 2, values[2], 3, values[3], values[4]]
+
+export default function MapView({ bundle, filter, tierVersion, onPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const readyRef = useRef(false)
   const onPickRef = useRef(onPick)
-  const onZoomRef = useRef(onZoom)
   onPickRef.current = onPick
-  onZoomRef.current = onZoom
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -40,67 +39,53 @@ export default function MapView({ bundle, filter, onPick, onZoom }: Props) {
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
 
-    const heatRamp: unknown[] = ['interpolate', ['linear'], ['heatmap-density']]
-    for (const [stop, color] of HEAT_RAMP) heatRamp.push(stop, color)
-
-    const catColors: unknown[] = ['match', ['get', 'c']]
-    bundle.meta.categories.forEach((c, i) => {
-      catColors.push(i, CATEGORY_COLORS[c.id] ?? FALLBACK_DOT_COLOR)
-    })
-    catColors.push(FALLBACK_DOT_COLOR)
-
     map.on('load', () => {
       map.addSource('incidents', { type: 'geojson', data: bundle.geojson })
 
+      // Halo behind the hottest tiers, so dense cores visibly bloom.
       map.addLayer({
-        id: 'heat',
-        type: 'heatmap',
-        source: 'incidents',
-        paint: {
-          'heatmap-weight': 1,
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], MIN_ZOOM, 0.03, 13, 0.1, 15.5, 0.5],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], MIN_ZOOM, 7, 13, 15, 15.5, 30],
-          'heatmap-color': heatRamp as never,
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], DOT_ZOOM - 0.8, 0.9, DOT_ZOOM + 0.8, 0.18],
-        },
-      })
-
-      map.addLayer({
-        id: 'dots',
+        id: 'fly-hotglow',
         type: 'circle',
         source: 'incidents',
-        minzoom: DOT_ZOOM - 0.6,
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], DOT_ZOOM - 0.6, 2.2, 16.5, 5.5, 19, 9],
-          'circle-color': catColors as never,
-          'circle-opacity': ['interpolate', ['linear'], ['zoom'], DOT_ZOOM - 0.6, 0, DOT_ZOOM + 0.4, 0.85],
-          'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], DOT_ZOOM, 0, 17, 1],
-          'circle-stroke-color': 'rgba(0,0,0,0.6)',
-          'circle-stroke-opacity': 0.6,
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 4.2, 15, 11],
+          'circle-color': EXPOSURE.hotGlowColor,
+          'circle-opacity': 0.1,
+          'circle-blur': 1.8,
+        },
+      })
+      map.addLayer({
+        id: 'fly-core',
+        type: 'circle',
+        source: 'incidents',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'],
+            11, tierMatch(EXPOSURE.radiusZ11) as never,
+            15, tierMatch(EXPOSURE.radiusZ15) as never,
+            17.5, tierMatch(EXPOSURE.radiusZ15.map((r) => r * 2)) as never],
+          'circle-color': tierMatch(EXPOSURE.colors as unknown as number[]) as never,
+          'circle-opacity': tierMatch(EXPOSURE.opacity) as never,
         },
       })
 
-      const f = toMapFilter(filter) as never
-      map.setFilter('heat', f)
-      map.setFilter('dots', f)
+      applyFilters(map, filter)
       readyRef.current = true
     })
 
     map.on('click', (e) => {
-      if (map.getZoom() < DOT_ZOOM - 0.6 || !readyRef.current) return
+      if (!readyRef.current) return
       const pad = 8
       const feats = map.queryRenderedFeatures(
         [[e.point.x - pad, e.point.y - pad], [e.point.x + pad, e.point.y + pad]],
-        { layers: ['dots'] },
+        { layers: ['fly-core'] },
       )
       if (feats.length) onPickRef.current(feats.map((ft) => ft.properties!.i as number))
     })
     map.on('mousemove', (e) => {
-      if (map.getZoom() < DOT_ZOOM - 0.6 || !readyRef.current) return
-      const feats = map.queryRenderedFeatures(e.point, { layers: ['dots'] })
+      if (!readyRef.current) return
+      const feats = map.queryRenderedFeatures(e.point, { layers: ['fly-core'] })
       map.getCanvas().style.cursor = feats.length ? 'pointer' : ''
     })
-    map.on('zoom', () => onZoomRef.current(map.getZoom()))
 
     return () => {
       readyRef.current = false
@@ -113,10 +98,23 @@ export default function MapView({ bundle, filter, onPick, onZoom }: Props) {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !readyRef.current) return
-    const f = toMapFilter(filter) as never
-    map.setFilter('heat', f)
-    map.setFilter('dots', f)
+    applyFilters(map, filter)
   }, [filter])
 
+  // Tiers were rewritten in place — push the updated GeoJSON to the GPU.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !readyRef.current) return
+    const src = map.getSource('incidents') as maplibregl.GeoJSONSource | undefined
+    src?.setData(bundle.geojson)
+  }, [bundle, tierVersion])
+
   return <div ref={containerRef} className="map-container" />
+}
+
+function applyFilters(map: maplibregl.Map, filter: FilterState) {
+  const f = toMapFilter(filter) as never
+  map.setFilter('fly-core', f)
+  // The halo only backs the hottest dots.
+  map.setFilter('fly-hotglow', ['all', f, ['>=', ['get', 't'], 3]] as never)
 }

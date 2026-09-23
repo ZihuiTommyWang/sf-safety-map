@@ -1,4 +1,4 @@
-import { DATA_BASE } from './config'
+import { DATA_BASE, EXPOSURE } from './config'
 
 export interface Category {
   id: string
@@ -44,6 +44,9 @@ export interface DataBundle {
   meta: Meta
   incidents: Incidents
   geojson: GeoJSON.FeatureCollection
+  /** Hex id per incident, for exposure-tier density computation. */
+  pointHex: Int32Array
+  hexCount: number
 }
 
 const DAY0_UTC = Date.UTC(2018, 0, 1)
@@ -80,16 +83,82 @@ export async function loadData(): Promise<DataBundle> {
     }),
   ])
 
+  const { pointHex, hexCount } = buildHexIndex(incidents)
+
   // Built once; the map layers then filter on the small numeric properties.
+  // `t` (exposure tier) is rewritten in place by applyTiers when filters change.
   const features: GeoJSON.Feature[] = new Array(incidents.n)
   for (let i = 0; i < incidents.n; i++) {
     features[i] = {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [incidents.lng[i], incidents.lat[i]] },
-      properties: { i, c: incidents.cat[i], d: incidents.day[i], h: incidents.hour[i] },
+      properties: { i, c: incidents.cat[i], d: incidents.day[i], h: incidents.hour[i], t: 0 },
     }
   }
-  return { meta, incidents, geojson: { type: 'FeatureCollection', features } }
+  return { meta, incidents, geojson: { type: 'FeatureCollection', features }, pointHex, hexCount }
+}
+
+// ---------- exposure tiers ----------
+
+const LAT0 = 37.768
+const LNG0 = -122.435
+const MXm = 111320 * Math.cos((LAT0 * Math.PI) / 180)
+const MYm = 110540
+
+/** Assigns each incident to a pointy-top hex of ~EXPOSURE.hexSizeM meters. */
+function buildHexIndex(inc: Incidents): { pointHex: Int32Array; hexCount: number } {
+  const size = EXPOSURE.hexSizeM
+  const ids = new Map<string, number>()
+  const pointHex = new Int32Array(inc.n)
+  for (let i = 0; i < inc.n; i++) {
+    const x = (inc.lng[i] - LNG0) * MXm
+    const y = (inc.lat[i] - LAT0) * MYm
+    const q = ((Math.sqrt(3) / 3) * x - y / 3) / size
+    const r = ((2 / 3) * y) / size
+    let rq = Math.round(q)
+    let rr = Math.round(r)
+    const rs = Math.round(-q - r)
+    const dq = Math.abs(rq - q)
+    const dr = Math.abs(rr - r)
+    const ds = Math.abs(rs - (-q - r))
+    if (dq > dr && dq > ds) rq = -rr - rs
+    else if (dr > ds) rr = -rq - rs
+    const key = `${rq},${rr}`
+    let id = ids.get(key)
+    if (id === undefined) {
+      id = ids.size
+      ids.set(key, id)
+    }
+    pointHex[i] = id
+  }
+  return { pointHex, hexCount: ids.size }
+}
+
+/**
+ * Recomputes each feature's exposure tier `t` (0–4) in place: the citywide
+ * percentile of its hex's incident count, counting only incidents matching the
+ * active categories and date range. Hour filters deliberately don't participate
+ * so the scrubber animation never forces a source update.
+ */
+export function applyTiers(bundle: DataBundle, cats: Set<number>, dayRange: [number, number]): void {
+  const { incidents: inc, pointHex } = bundle
+  const counts = new Int32Array(bundle.hexCount)
+  const [d0, d1] = dayRange
+  for (let i = 0; i < inc.n; i++) {
+    if (!cats.has(inc.cat[i])) continue
+    if (inc.day[i] < d0 || inc.day[i] > d1) continue
+    counts[pointHex[i]]++
+  }
+  const nonzero: number[] = []
+  for (const c of counts) if (c > 0) nonzero.push(c)
+  nonzero.sort((a, b) => a - b)
+  const q = (p: number) => (nonzero.length ? nonzero[Math.min(nonzero.length - 1, Math.floor(p * nonzero.length))] : 1)
+  const T = EXPOSURE.quantiles.map(q)
+  for (let i = 0; i < inc.n; i++) {
+    const n = counts[pointHex[i]]
+    const t = n >= T[3] ? 4 : n >= T[2] ? 3 : n >= T[1] ? 2 : n >= T[0] ? 1 : 0
+    ;(bundle.geojson.features[i].properties as { t: number }).t = t
+  }
 }
 
 export interface FilterState {

@@ -19,11 +19,13 @@ export default function MethodologyModal({ built, total, onClose }: Props) {
           . The map currently shows the last 12 months ({total.toLocaleString()} incidents with
           usable coordinates) and refreshes nightly. Last update: {built.slice(0, 10)}.
         </p>
-        <h3>How the heatmap works</h3>
+        <h3>How the map works</h3>
         <p>
-          The green→red surface is a density estimate of the incidents matching your filters —
-          more nearby incidents means hotter colors. Zoom in and it dissolves into the individual
-          incidents themselves; click any dot to read what was actually reported there.
+          Every dot is one real incident matching your filters — nothing is smoothed or
+          interpolated. Dots brighten from dim ember to white-hot as the incident density of
+          their surrounding block (~140&nbsp;m) climbs the citywide percentiles, like a
+          long-exposure photograph overexposing where light piles up. Click any dot to read
+          what was actually reported there.
         </p>
         <h3>Honest caveats</h3>
         <ul>
@@ -32,8 +34,9 @@ export default function MethodologyModal({ built, total, onClose }: Props) {
             also reflects police presence, foot traffic, and reporting habits — not just danger.
           </li>
           <li>
-            <strong>Smoothing bleeds.</strong> Heat radiates a block or two beyond where incidents
-            actually occurred. Zoom in for the truth.
+            <strong>Brightness is relative.</strong> Dot brightness compares blocks against the
+            rest of the city for your current filters — it is a percentile, not an absolute
+            risk score.
           </li>
           <li>
             <strong>Locations are approximate.</strong> SFPD anonymizes incident locations to the
