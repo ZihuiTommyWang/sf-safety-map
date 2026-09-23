@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Firefly Lab — SF Safety Map</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #14171c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  #map { position: absolute; inset: 0; }
+  .bar {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 4px; z-index: 10; background: rgba(20,23,28,.92);
+    border: 1px solid rgba(255,255,255,.1); border-radius: 999px; padding: 6px 8px;
+  }
+  .bar button {
+    border: none; background: transparent; color: #cdd1d5; padding: 7px 13px;
+    border-radius: 999px; cursor: pointer; font-size: 13px; white-space: nowrap;
+  }
+  .bar button.active { background: rgba(74,222,128,.18); color: #4ade80; }
+  .note {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(20,23,28,.92); border: 1px solid rgba(255,255,255,.1);
+    color: #9aa0a6; border-radius: 10px; padding: 8px 16px; font-size: 12.5px; z-index: 10;
+    max-width: 680px; text-align: center;
+  }
+  .note b { color: #e8eaed; }
+  .legend {
+    position: absolute; top: 64px; left: 50%; transform: translateX(-50%);
+    display: none; gap: 14px; z-index: 10; background: rgba(20,23,28,.9);
+    border: 1px solid rgba(255,255,255,.1); border-radius: 999px; padding: 6px 16px;
+    color: #cdd1d5; font-size: 12px;
+  }
+  .legend span::before {
+    content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 6px; background: var(--c); box-shadow: 0 0 6px var(--c);
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="bar" id="bar"></div>
+<div class="legend" id="legend"></div>
+<div class="note" id="note"></div>
+
+<script>
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  center: [-122.435, 37.768], zoom: 12.1, minZoom: 10.5,
+  attributionControl: { compact: true },
+})
+
+// Category-index → concept group. Four hues max: more reads as noise.
+const GROUP_COLORS = { violent: '#ff5964', vehicle: '#ffa726', property: '#ffd166', disorder: '#4dd0c4' }
+const GROUP_OF = {
+  'assault': 'violent', 'homicide': 'violent', 'robbery': 'violent', 'sex-offenses': 'violent', 'weapons': 'violent',
+  'car-break-in': 'vehicle', 'vehicle-theft': 'vehicle',
+  'theft': 'property', 'burglary': 'property', 'vandalism': 'property', 'arson': 'property',
+  'drugs': 'disorder', 'street-disorder': 'disorder',
+}
+
+const ready = (async () => {
+  const [inc, meta] = await Promise.all([
+    fetch('data/incidents.json').then(r => r.json()),
+    fetch('data/meta.json').then(r => r.json()),
+  ])
+  const groupIdx = meta.categories.map(c => Object.keys(GROUP_COLORS).indexOf(GROUP_OF[c.id] ?? 'property'))
+  const feats = new Array(inc.n)
+  for (let i = 0; i < inc.n; i++) {
+    feats[i] = { type: 'Feature',
+      geometry: { type: 'Point', coordinates: [inc.lng[i], inc.lat[i]] },
+      properties: { g: groupIdx[inc.cat[i]], d: inc.day[i], ph: (i * 0.61803) % 2 } }
+  }
+  const pts = { type: 'FeatureCollection', features: feats }
+  const maxDay = meta.maxDay
+
+  await new Promise(res => map.loaded() ? res() : map.on('load', res))
+  map.addSource('pts', { type: 'geojson', data: pts })
+
+  const R = z1 => ['interpolate', ['linear'], ['zoom'], 11, z1, 15, z1 * 2.6]
+  const groupColor = ['match', ['get', 'g'], 0, GROUP_COLORS.violent, 1, GROUP_COLORS.vehicle, 2, GROUP_COLORS.property, GROUP_COLORS.disorder]
+
+  // A — Classic amber
+  map.addLayer({ id: 'A-glow', type: 'circle', source: 'pts', paint: {
+    'circle-radius': R(2.6), 'circle-color': '#ffb84d', 'circle-opacity': 0.06, 'circle-blur': 1.6 } })
+  map.addLayer({ id: 'A-core', type: 'circle', source: 'pts', paint: {
+    'circle-radius': R(1.1), 'circle-color': '#ffe9c4', 'circle-opacity': 0.35 } })
+
+  // B — Constellations (category-colored)
+  map.addLayer({ id: 'B-glow', type: 'circle', source: 'pts', paint: {
+    'circle-radius': R(2.6), 'circle-color': groupColor, 'circle-opacity': 0.07, 'circle-blur': 1.6 } })
+  map.addLayer({ id: 'B-core', type: 'circle', source: 'pts', paint: {
+    'circle-radius': R(1.1), 'circle-color': groupColor, 'circle-opacity': 0.45 } })
+
+  // C — Embers (brightness = recency)
+  const tier = ['step', ['get', 'd'], 0, maxDay - 120, 1, maxDay - 30, 2] // 0 old, 1 mid, 2 fresh
+  map.addLayer({ id: 'C-old', type: 'circle', source: 'pts', filter: ['==', tier, 0], paint: {
+    'circle-radius': R(1.0), 'circle-color': '#8a5a2a', 'circle-opacity': 0.16 } })
+  map.addLayer({ id: 'C-mid', type: 'circle', source: 'pts', filter: ['==', tier, 1], paint: {
+    'circle-radius': R(1.2), 'circle-color': '#ffb84d', 'circle-opacity': 0.4 } })
+  map.addLayer({ id: 'C-fresh-glow', type: 'circle', source: 'pts', filter: ['==', tier, 2], paint: {
+    'circle-radius': R(3.4), 'circle-color': '#ffddb0', 'circle-opacity': 0.16, 'circle-blur': 1.4 } })
+  map.addLayer({ id: 'C-fresh', type: 'circle', source: 'pts', filter: ['==', tier, 2], paint: {
+    'circle-radius': R(1.5), 'circle-color': '#fff3d6', 'circle-opacity': 0.85 } })
+
+  // D — Pin-light (sharp, minimal)
+  map.addLayer({ id: 'D-core', type: 'circle', source: 'pts', paint: {
+    'circle-radius': R(0.8), 'circle-color': '#ffe9c4', 'circle-opacity': 0.55 } })
+
+  // E — Nightglow (bloom underlay + dots)
+  map.addLayer({ id: 'E-heat', type: 'heatmap', source: 'pts', paint: {
+    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10.5, 0.006, 15, 0.08],
+    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10.5, 16, 15, 44],
+    'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'],
+      0, 'rgba(0,0,0,0)', .55, 'rgba(120,70,10,0.14)', .85, 'rgba(230,140,30,0.28)', 1, 'rgba(255,190,80,0.38)'] } })
+  map.addLayer({ id: 'E-core', type: 'circle', source: 'pts', paint: {
+    'circle-radius': R(1.0), 'circle-color': '#ffe9c4', 'circle-opacity': 0.3 } })
+
+  // F — Twinkle (classic + shimmer)
+  map.addLayer({ id: 'F-glow', type: 'circle', source: 'pts', paint: {
+    'circle-radius': R(2.6), 'circle-color': '#ffb84d', 'circle-opacity': 0.06, 'circle-blur': 1.6 } })
+  map.addLayer({ id: 'F-core', type: 'circle', source: 'pts', paint: {
+    'circle-radius': R(1.1), 'circle-color': '#ffe9c4', 'circle-opacity': 0.35 } })
+
+  return { maxDay }
+})()
+
+let twinkleTimer = null
+function startTwinkle() {
+  let t = 0
+  twinkleTimer = setInterval(() => {
+    t = (t + 0.12) % 2
+    // sawtooth per-dot phase: opacity oscillates 0.12 → 0.55
+    map.setPaintProperty('F-core', 'circle-opacity',
+      ['+', 0.12, ['*', 0.43, ['abs', ['-', ['%', ['+', ['get', 'ph'], t], 2], 1]]]])
+  }, 90)
+}
+function stopTwinkle() { if (twinkleTimer) { clearInterval(twinkleTimer); twinkleTimer = null } }
+
+const MODES = {
+  A: { layers: ['A-glow', 'A-core'], label: 'Classic',
+    note: '<b>A · Classic amber</b> — one warm hue; density = brightness. The long-exposure-photo baseline.' },
+  B: { layers: ['B-glow', 'B-core'], label: 'Constellations', legend: true,
+    note: '<b>B · Constellations</b> — color = what kind of harm: <span style="color:#ff5964">violence</span>, <span style="color:#ffa726">vehicles</span>, <span style="color:#ffd166">property</span>, <span style="color:#4dd0c4">disorder</span>. Patterns pop: teal drug corridors vs orange break-in belts.' },
+  C: { layers: ['C-old', 'C-mid', 'C-fresh-glow', 'C-fresh'], label: 'Embers',
+    note: '<b>C · Embers</b> — brightness = recency: last 30 days burn white-hot, 30–120 days amber, older fades to coals. The map answers “what’s happening <i>now</i>?”' },
+  D: { layers: ['D-core'], label: 'Pin-light',
+    note: '<b>D · Pin-light</b> — no glow, tiny sharp points. Maximum honesty, minimum atmosphere; reads like a scientific plot.' },
+  E: { layers: ['E-heat', 'E-core'], label: 'Nightglow',
+    note: '<b>E · Nightglow</b> — dots plus a faint warm bloom underneath. Keeps firefly precision but restores at-a-glance “where’s hot” readability.' },
+  F: { layers: ['F-glow', 'F-core'], label: 'Twinkle', twinkle: true,
+    note: '<b>F · Twinkle</b> — classic, but each dot shimmers on its own phase. The map feels alive. (Judge: delightful or distracting?)' },
+}
+
+const bar = document.getElementById('bar')
+for (const key of Object.keys(MODES)) {
+  const b = document.createElement('button')
+  b.textContent = MODES[key].label
+  b.id = 'btn-' + key
+  b.onclick = () => setMode(key)
+  bar.appendChild(b)
+}
+const legend = document.getElementById('legend')
+legend.innerHTML = Object.entries(GROUP_COLORS)
+  .map(([g, c]) => `<span style="--c:${c}">${g}</span>`).join('')
+
+const ALL = ['A-glow','A-core','B-glow','B-core','C-old','C-mid','C-fresh-glow','C-fresh','D-core','E-heat','E-core','F-glow','F-core']
+async function setMode(key) {
+  await ready
+  const m = MODES[key]
+  stopTwinkle()
+  for (const id of ALL) map.setLayoutProperty(id, 'visibility', m.layers.includes(id) ? 'visible' : 'none')
+  if (m.twinkle) startTwinkle()
+  legend.style.display = m.legend ? 'flex' : 'none'
+  document.getElementById('note').innerHTML = m.note
+  document.querySelectorAll('.bar button').forEach(x => x.classList.toggle('active', x.id === 'btn-' + key))
+}
+setMode('A')
+</script>
+</body>
+</html>
