@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UI Lab — SF Safety Map</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<style>
+  :root { --panel: rgba(18,20,25,.94); --line: rgba(255,255,255,.1); --txt:#e8eaed; --dim:#9aa0a6; --amber:#ffb84d; }
+  html, body { margin:0; height:100%; background:#14171c; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color:var(--txt); }
+  #map { position:absolute; inset:0; }
+  .switch { position:absolute; bottom:14px; right:14px; z-index:40; display:flex; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:5px 6px; }
+  .switch button { border:none; background:transparent; color:#cdd1d5; padding:6px 11px; border-radius:999px; cursor:pointer; font-size:12px; }
+  .switch button.active { background:rgba(74,222,128,.18); color:#4ade80; }
+  .mock { display:none; }
+  .mock.on { display:block; }
+
+  /* A — command bar */
+  .cmdbar { position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:30; width:min(560px, 92vw);
+    background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:12px 16px; cursor:pointer;
+    box-shadow:0 8px 32px rgba(0,0,0,.45); }
+  .cmdbar .q { display:flex; align-items:center; gap:10px; color:var(--dim); font-size:14.5px; }
+  .cmdbar .q b { color:var(--txt); font-weight:500; }
+  .cmdbar .chips { display:flex; gap:6px; margin-top:10px; }
+  .chip { font-size:11.5px; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.05); color:#cdd1d5; }
+  .chip.hot { border-color:rgba(74,222,128,.5); color:#4ade80; }
+
+  /* report card (used by A and C) */
+  .card { position:absolute; top:16px; right:16px; z-index:30; width:290px; background:var(--panel);
+    border:1px solid var(--line); border-radius:16px; padding:16px 18px; box-shadow:0 8px 32px rgba(0,0,0,.45); }
+  .card h2 { margin:0; font-size:16px; }
+  .card .sub { color:var(--dim); font-size:11.5px; margin-top:2px; }
+  .grade { float:right; font-size:26px; font-weight:800; color:var(--amber); line-height:1; }
+  .stat-row { display:flex; justify-content:space-between; font-size:12.5px; margin-top:10px; color:#cdd1d5; }
+  .stat-row b { color:var(--txt); }
+  .bars { margin-top:10px; }
+  .bars .b { display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--dim); margin-top:5px; }
+  .bars .b i { height:6px; border-radius:3px; background:var(--amber); display:block; }
+  .spark { margin-top:12px; }
+  .spark svg { width:100%; height:44px; display:block; }
+  .card .foot { margin-top:12px; font-size:10.5px; color:var(--dim); }
+
+  /* B — bottom sheet */
+  .sheet { position:absolute; left:50%; transform:translateX(-50%); bottom:0; z-index:30; width:min(680px,100vw);
+    background:var(--panel); border:1px solid var(--line); border-bottom:none; border-radius:18px 18px 0 0;
+    box-shadow:0 -8px 32px rgba(0,0,0,.5); transition:height .25s ease; overflow:hidden; }
+  .sheet .grab { width:44px; height:4px; border-radius:2px; background:rgba(255,255,255,.25); margin:10px auto 8px; cursor:pointer; }
+  .sheet .line1 { display:flex; justify-content:space-between; padding:0 18px 12px; font-size:13.5px; align-items:center; }
+  .sheet .line1 b { color:var(--amber); }
+  .sheet .chipsrow { display:flex; gap:6px; overflow-x:auto; padding:2px 18px 14px; }
+  .sheet .dial { display:flex; gap:3px; padding:0 18px 16px; align-items:flex-end; height:52px; }
+  .sheet .dial i { flex:1; background:var(--amber); opacity:.55; border-radius:2px 2px 0 0; display:block; }
+  .sheet .list { padding:0 18px 18px; font-size:12.5px; color:#cdd1d5; }
+  .sheet .list div { padding:7px 0; border-top:1px solid rgba(255,255,255,.06); }
+  .sheet .list span { color:var(--dim); font-size:11px; display:block; }
+
+  /* D — lens */
+  #lens { position:absolute; z-index:30; width:230px; height:230px; border-radius:50%; border:1.5px solid rgba(255,200,90,.8);
+    box-shadow:0 0 0 9999px rgba(0,0,0,.35), 0 0 24px rgba(255,184,77,.25) inset; cursor:grab; touch-action:none; }
+  #lens .tag { position:absolute; background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:4px 9px; font-size:11px; color:#cdd1d5; white-space:nowrap; }
+  #lens .tag b { color:var(--amber); }
+  #lens .t-top { top:-34px; left:50%; transform:translateX(-50%); }
+  #lens .t-right { right:-10px; top:50%; transform:translate(100%,-50%); }
+  #lens .t-bottom { bottom:-34px; left:50%; transform:translateX(-50%); }
+  #lens .t-left { left:-10px; top:50%; transform:translate(-100%,-50%); }
+
+  /* E — chapters */
+  .rail { position:absolute; left:14px; top:50%; transform:translateY(-50%); z-index:30; display:flex; flex-direction:column; gap:4px;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:8px; }
+  .rail button { border:none; background:transparent; color:#cdd1d5; text-align:left; font-size:12px; padding:8px 12px; border-radius:9px; cursor:pointer; white-space:nowrap; }
+  .rail button.active { background:rgba(255,184,77,.14); color:var(--amber); }
+  .caption { position:absolute; bottom:64px; left:50%; transform:translateX(-50%); z-index:30; max-width:520px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 18px; font-size:13.5px; text-align:center; }
+  .caption b { color:var(--amber); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- A: command bar + search result card -->
+<div class="mock" id="ui-A">
+  <div class="cmdbar" onclick="document.getElementById('cardA').style.display='block'">
+    <div class="q">🔍 <span>Search an address, or try <b>“car break-ins near Alamo Square”</b></span></div>
+    <div class="chips"><span class="chip hot">Walking</span><span class="chip">All hours</span><span class="chip">Last 12 mo</span></div>
+  </div>
+  <div class="card" id="cardA" style="display:none">
+    <span class="grade" id="A-grade">C−</span>
+    <h2>Powell St &amp; Geary Blvd</h2>
+    <div class="sub">Union Square · 300 m radius</div>
+    <div class="stat-row"><span>Incidents, 12 mo</span><b id="A-count">—</b></div>
+    <div class="stat-row"><span>vs city average</span><b id="A-mult">—</b></div>
+    <div class="stat-row"><span>Riskiest hour</span><b id="A-peak">—</b></div>
+    <div class="bars" id="A-bars"></div>
+    <div class="spark"><svg id="A-spark" viewBox="0 0 240 44" preserveAspectRatio="none"></svg></div>
+    <div class="foot">Grades are citywide percentiles for your active filters. Share: sfsafety.map/@powell-geary</div>
+  </div>
+</div>
+
+<!-- B: bottom sheet -->
+<div class="mock" id="ui-B">
+  <div class="sheet" id="sheet" style="height:64px">
+    <div class="grab" onclick="cycleSheet()"></div>
+    <div class="line1"><span><b id="B-count">—</b> incidents · Walking · all day</span><span style="color:var(--dim);font-size:11px">tap to expand ↑</span></div>
+    <div class="chipsrow">
+      <span class="chip hot">Violence</span><span class="chip hot">Drugs</span><span class="chip">Theft</span>
+      <span class="chip">Cars</span><span class="chip">Burglary</span><span class="chip">Disorder</span><span class="chip">Vandalism</span>
+    </div>
+    <div class="dial" id="B-dial"></div>
+    <div class="list" id="B-list"></div>
+  </div>
+</div>
+
+<!-- C: live viewport report card -->
+<div class="mock" id="ui-C">
+  <div class="card">
+    <span class="grade" id="C-grade">—</span>
+    <h2 id="C-title">This view</h2>
+    <div class="sub">updates as you pan · Walking filters</div>
+    <div class="stat-row"><span>Incidents in view</span><b id="C-count">—</b></div>
+    <div class="stat-row"><span>vs city average</span><b id="C-mult">—</b></div>
+    <div class="stat-row"><span>Riskiest hour</span><b id="C-peak">—</b></div>
+    <div class="bars" id="C-bars"></div>
+    <div class="spark"><svg id="C-spark" viewBox="0 0 240 44" preserveAspectRatio="none"></svg></div>
+    <div class="foot">Pan the map — the card follows.</div>
+  </div>
+</div>
+
+<!-- D: lens -->
+<div class="mock" id="ui-D">
+  <div id="lens">
+    <div class="tag t-top"><b id="D-count">—</b> incidents</div>
+    <div class="tag t-right" id="D-cat">—</div>
+    <div class="tag t-bottom">peak <b id="D-peak">—</b></div>
+    <div class="tag t-left"><b id="D-mult">—</b> city avg</div>
+  </div>
+</div>
+
+<!-- E: chapters -->
+<div class="mock" id="ui-E">
+  <div class="rail" id="rail"></div>
+  <div class="caption" id="E-cap"></div>
+</div>
+
+<div class="switch" id="switch"></div>
+
+<script>
+const map = new maplibregl.Map({
+  container:'map',
+  style:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  center:[-122.435,37.768], zoom:12.1, minZoom:10.5,
+  attributionControl:{compact:true},
+})
+
+const LAT0=37.768, LNG0=-122.435, MXm=111320*Math.cos(LAT0*Math.PI/180), MYm=110540
+let inc=null, meta=null, XY=null, cityDensity=0
+
+const ready=(async()=>{
+  ;[inc,meta]=await Promise.all([
+    fetch('data/incidents.json').then(r=>r.json()),
+    fetch('data/meta.json').then(r=>r.json()),
+  ])
+  XY=new Float64Array(inc.n*2)
+  for(let i=0;i<inc.n;i++){ XY[2*i]=(inc.lng[i]-LNG0)*MXm; XY[2*i+1]=(inc.lat[i]-LAT0)*MYm }
+  cityDensity=inc.n/120e6 // ≈120 km² of SF land, incidents per m²
+
+  // exposure tiers (same as the app)
+  const HEXS=140, bins=new Map(), keys=new Array(inc.n)
+  for(let i=0;i<inc.n;i++){
+    const x=XY[2*i], y=XY[2*i+1]
+    let q=(Math.sqrt(3)/3*x-y/3)/HEXS, r=(2/3*y)/HEXS
+    let rq=Math.round(q), rr=Math.round(r); const rs=Math.round(-q-r)
+    const dq=Math.abs(rq-q), dr=Math.abs(rr-r), ds=Math.abs(rs-(-q-r))
+    if(dq>dr&&dq>ds)rq=-rr-rs; else if(dr>ds)rr=-rq-rs
+    const k=rq+','+rr; keys[i]=k; bins.set(k,(bins.get(k)||0)+1)
+  }
+  const sorted=[...bins.values()].sort((a,b)=>a-b)
+  const qv=p=>sorted[Math.min(sorted.length-1,Math.floor(p*sorted.length))]
+  const T=[qv(.55),qv(.8),qv(.93),qv(.985)]
+  const feats=new Array(inc.n)
+  for(let i=0;i<inc.n;i++){
+    const n=bins.get(keys[i])
+    feats[i]={type:'Feature',geometry:{type:'Point',coordinates:[inc.lng[i],inc.lat[i]]},
+      properties:{t:n>=T[3]?4:n>=T[2]?3:n>=T[1]?2:n>=T[0]?1:0}}
+  }
+  await new Promise(res=>map.loaded()?res():map.on('load',res))
+  map.addSource('pts',{type:'geojson',data:{type:'FeatureCollection',features:feats}})
+  map.addLayer({id:'hot',type:'circle',source:'pts',filter:['>=',['get','t'],3],paint:{
+    'circle-radius':['interpolate',['linear'],['zoom'],11,4.2,15,11],'circle-color':'#ffcf70','circle-opacity':.1,'circle-blur':1.8}})
+  map.addLayer({id:'core',type:'circle',source:'pts',paint:{
+    'circle-radius':['interpolate',['linear'],['zoom'],11,['match',['get','t'],0,.9,1,1,2,1.2,3,1.4,1.6],15,['match',['get','t'],0,2.3,1,2.6,2,3.1,3,3.6,4.2]],
+    'circle-color':['match',['get','t'],0,'#8a5c22',1,'#c98f35',2,'#ffb84d',3,'#ffd98f','#fff6e0'],
+    'circle-opacity':['match',['get','t'],0,.22,1,.32,2,.5,3,.72,.95]}})
+})()
+
+// ---- shared region stats ----
+function regionStats(test){ // test(x,y,i) -> in region?
+  const catCount=new Map(), hours=new Int32Array(24)
+  let n=0
+  for(let i=0;i<inc.n;i++){
+    if(!test(XY[2*i],XY[2*i+1],i))continue
+    n++
+    catCount.set(inc.cat[i],(catCount.get(inc.cat[i])||0)+1)
+    if(inc.hour[i]<24)hours[inc.hour[i]]++
+  }
+  let peak=0; for(let h=1;h<24;h++)if(hours[h]>hours[peak])peak=h
+  const top=[...catCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3)
+    .map(([c,k])=>[meta.categories[c].label,k])
+  return {n,peak,top,hours}
+}
+const fmtH=h=>h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'
+function gradeFromMult(m){ return m<0.5?'A':m<1?'B+':m<1.6?'B−':m<2.5?'C−':m<4?'D':'F' }
+function fillCard(prefix,stats,areaM2){
+  const mult=(stats.n/areaM2)/cityDensity
+  document.getElementById(prefix+'-count').textContent=stats.n.toLocaleString()
+  document.getElementById(prefix+'-peak').textContent=fmtH(stats.peak)
+  const multEl=document.getElementById(prefix+'-mult'); if(multEl)multEl.textContent=mult.toFixed(1)+'×'
+  const gEl=document.getElementById(prefix+'-grade'); if(gEl)gEl.textContent=gradeFromMult(mult)
+  const bars=document.getElementById(prefix+'-bars')
+  if(bars&&stats.top.length){
+    const max=stats.top[0][1]
+    bars.innerHTML=stats.top.map(([l,k])=>`<div class="b"><i style="width:${Math.max(8,90*k/max)}px"></i>${l} · ${k}</div>`).join('')
+  }
+  const svg=document.getElementById(prefix+'-spark')
+  if(svg){
+    const max=Math.max(...stats.hours,1)
+    svg.innerHTML='<polyline fill="rgba(255,184,77,.15)" stroke="#ffb84d" stroke-width="1.5" points="0,44 '+
+      [...stats.hours].map((v,h)=>`${h*240/23},${44-38*v/max}`).join(' ')+' 240,44"/>'
+  }
+}
+
+// ---- A: canned search result (real stats, 300m around Powell & Geary) ----
+async function initA(){ await ready
+  const cx=(-122.4083-LNG0)*MXm, cy=(37.7873-LAT0)*MYm, R=300
+  fillCard('A',regionStats((x,y)=>((x-cx)**2+(y-cy)**2)<R*R),Math.PI*R*R)
+}
+
+// ---- B: sheet ----
+const SHEET_H=[64,235,430]; let sheetIdx=0
+function cycleSheet(){ sheetIdx=(sheetIdx+1)%3; document.getElementById('sheet').style.height=SHEET_H[sheetIdx]+'px' }
+async function initB(){ await ready
+  document.getElementById('B-count').textContent=(23512).toLocaleString()
+  const {hours}=regionStats(()=>true)
+  const max=Math.max(...hours)
+  document.getElementById('B-dial').innerHTML=[...hours].map(v=>`<i style="height:${Math.max(6,100*v/max)}%"></i>`).join('')
+  const c=map.getCenter(), cx=(c.lng-LNG0)*MXm, cy=(c.lat-LAT0)*MYm
+  const near=[]
+  for(let i=0;i<inc.n&&near.length<4;i++){ if(((XY[2*i]-cx)**2+(XY[2*i+1]-cy)**2)<600**2)near.push(i) }
+  document.getElementById('B-list').innerHTML=near.map(i=>
+    `<div>${inc.descs[inc.desc[i]]}<span>${meta.categories[inc.cat[i]].label} · ${fmtH(inc.hour[i]<24?inc.hour[i]:0)}</span></div>`).join('')
+}
+
+// ---- C: live viewport card ----
+let cOn=false
+async function updateC(){ if(!cOn)return; await ready
+  const b=map.getBounds()
+  const x1=(b.getWest()-LNG0)*MXm,x2=(b.getEast()-LNG0)*MXm,y1=(b.getSouth()-LAT0)*MYm,y2=(b.getNorth()-LAT0)*MYm
+  fillCard('C',regionStats((x,y)=>x>=x1&&x<=x2&&y>=y1&&y<=y2),(x2-x1)*(y2-y1))
+}
+map.on('moveend',()=>updateC())
+
+// ---- D: lens ----
+const lens=document.getElementById('lens')
+let drag=null
+lens.addEventListener('pointerdown',e=>{ drag={dx:e.clientX-lens.offsetLeft,dy:e.clientY-lens.offsetTop}; lens.setPointerCapture(e.pointerId) })
+lens.addEventListener('pointermove',e=>{ if(!drag)return
+  lens.style.left=(e.clientX-drag.dx)+'px'; lens.style.top=(e.clientY-drag.dy)+'px'; updateD() })
+lens.addEventListener('pointerup',()=>drag=null)
+let dPending=false
+async function updateD(){ if(dPending)return; dPending=true
+  requestAnimationFrame(async()=>{ dPending=false; await ready
+    const r=lens.getBoundingClientRect()
+    const c=map.unproject([r.left+r.width/2,r.top+r.height/2])
+    const edge=map.unproject([r.left+r.width,r.top+r.height/2])
+    const cx=(c.lng-LNG0)*MXm, cy=(c.lat-LAT0)*MYm
+    const R=Math.abs((edge.lng-LNG0)*MXm-cx)
+    const s=regionStats((x,y)=>((x-cx)**2+(y-cy)**2)<R*R)
+    document.getElementById('D-count').textContent=s.n.toLocaleString()
+    document.getElementById('D-peak').textContent=fmtH(s.peak)
+    document.getElementById('D-cat').textContent=s.top[0]?s.top[0][0]:'—'
+    document.getElementById('D-mult').textContent=((s.n/(Math.PI*R*R))/cityDensity).toFixed(1)+'×'
+  })
+}
+map.on('move',()=>{ if(document.getElementById('ui-D').classList.contains('on'))updateD() })
+
+// ---- E: chapters ----
+const CHAPTERS=[
+  {t:'Overview',c:[-122.435,37.768],z:12.1,cap:'<b>49,866 incidents</b> in 12 months — but 68% happen on just 5% of blocks. Most of SF is quiet.'},
+  {t:'Violence',c:[-122.414,37.783],z:14.2,cap:'Violent crime concentrates in the <b>Tenderloin & Mid-Market</b> — and drops off within two blocks.'},
+  {t:'Your car',c:[-122.433,37.80],z:13.6,cap:'Car break-ins hug the <b>tourist corridors</b> — Marina, Wharf, Alamo Square — not the “bad” neighborhoods.'},
+  {t:'Night vs day',c:[-122.418,37.776],z:13.4,cap:'After midnight the city goes dark — except <b>16th & Mission and the TL</b>, which barely dim.'},
+  {t:'Check your block',c:[-122.435,37.768],z:12.1,cap:'Free roam: <b>search your address</b> or click any glow to read the real report.'},
+]
+function initE(){
+  const rail=document.getElementById('rail')
+  rail.innerHTML=''
+  CHAPTERS.forEach((ch,i)=>{
+    const b=document.createElement('button'); b.textContent=(i+1)+' · '+ch.t
+    b.onclick=()=>{ document.querySelectorAll('.rail button').forEach(x=>x.classList.remove('active')); b.classList.add('active')
+      map.flyTo({center:ch.c,zoom:ch.z,duration:1400}); document.getElementById('E-cap').innerHTML=ch.cap }
+    rail.appendChild(b)
+    if(i===0)b.click()
+  })
+}
+
+// ---- switcher ----
+const UIS={A:'Command bar',B:'Bottom sheet',C:'Viewport card',D:'Lens',E:'Chapters'}
+const sw=document.getElementById('switch')
+for(const k of Object.keys(UIS)){
+  const b=document.createElement('button'); b.textContent=UIS[k]; b.id='sw-'+k
+  b.onclick=()=>setUI(k); sw.appendChild(b)
+}
+function setUI(k){
+  for(const id of Object.keys(UIS))document.getElementById('ui-'+id).classList.toggle('on',id===k)
+  document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id==='sw-'+k))
+  cOn=(k==='C')
+  if(k==='A')initA(); if(k==='B')initB(); if(k==='C')updateC(); if(k==='D'){lens.style.left='calc(50% - 115px)';lens.style.top='calc(45% - 115px)';updateD()} if(k==='E')initE()
+}
+setUI('A')
+</script>
+</body>
+</html>
