@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Map Style Lab — SF Safety Map</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #14171c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  #map { position: absolute; inset: 0; }
+  .bar {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; z-index: 10; background: rgba(20,23,28,.92);
+    border: 1px solid rgba(255,255,255,.1); border-radius: 999px; padding: 6px 8px;
+  }
+  .bar button {
+    border: none; background: transparent; color: #cdd1d5; padding: 7px 14px;
+    border-radius: 999px; cursor: pointer; font-size: 13px; white-space: nowrap;
+  }
+  .bar button.active { background: rgba(74,222,128,.18); color: #4ade80; }
+  .note {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(20,23,28,.92); border: 1px solid rgba(255,255,255,.1);
+    color: #9aa0a6; border-radius: 10px; padding: 8px 16px; font-size: 12.5px; z-index: 10;
+    max-width: 640px; text-align: center;
+  }
+  .note b { color: #e8eaed; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="bar" id="bar"></div>
+<div class="note" id="note"></div>
+
+<script>
+const HEAT = ['#1a522c', '#509e2f', '#cfc730', '#eb891c', '#dc2e26']
+const CENTER = [-122.435, 37.768]
+const LAT0 = 37.768, LNG0 = -122.435
+const MX = 111320 * Math.cos(LAT0 * Math.PI / 180)
+const MY = 110540
+const toXY = (lng, lat) => [(lng - LNG0) * MX, (lat - LAT0) * MY]
+const toLL = (x, y) => [x / MX + LNG0, y / MY + LAT0]
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  center: CENTER, zoom: 12.1, minZoom: 10.5,
+  attributionControl: { compact: true },
+})
+
+// ---------- hex binning (pointy-top axial) ----------
+function hexBin(pts, size) {
+  const bins = new Map()
+  for (const [x, y] of pts) {
+    let q = (Math.sqrt(3) / 3 * x - y / 3) / size
+    let r = (2 / 3 * y) / size
+    // cube round
+    let s = -q - r
+    let rq = Math.round(q), rr = Math.round(r), rs = Math.round(s)
+    const dq = Math.abs(rq - q), dr = Math.abs(rr - r), ds = Math.abs(rs - s)
+    if (dq > dr && dq > ds) rq = -rr - rs
+    else if (dr > ds) rr = -rq - rs
+    const key = rq + ',' + rr
+    bins.set(key, (bins.get(key) || 0) + 1)
+  }
+  const feats = []
+  for (const [key, count] of bins) {
+    const [q, r] = key.split(',').map(Number)
+    const cx = size * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r)
+    const cy = size * (3 / 2 * r)
+    const ring = []
+    for (let k = 0; k < 6; k++) {
+      const a = Math.PI / 180 * (60 * k - 30)
+      ring.push(toLL(cx + size * Math.cos(a), cy + size * Math.sin(a)))
+    }
+    ring.push(ring[0])
+    feats.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: { count } })
+  }
+  return { type: 'FeatureCollection', features: feats }
+}
+
+function quantile(sorted, p) { return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] }
+
+function hexColorExpr(fc) {
+  const counts = fc.features.map(f => f.properties.count).sort((a, b) => a - b)
+  const stops = [quantile(counts, .35), quantile(counts, .65), quantile(counts, .85), quantile(counts, .96)]
+  return ['step', ['get', 'count'], HEAT[0], stops[0], HEAT[1], stops[1], HEAT[2], stops[2], HEAT[3], stops[3], HEAT[4]]
+}
+
+// ---------- load data & build sources ----------
+const ready = (async () => {
+  const inc = await (await fetch('data/incidents.json')).json()
+  const pts = { type: 'FeatureCollection', features: [] }
+  const xy = []
+  for (let i = 0; i < inc.n; i++) {
+    pts.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [inc.lng[i], inc.lat[i]] }, properties: {} })
+    xy.push(toXY(inc.lng[i], inc.lat[i]))
+  }
+  const hexFine = hexBin(xy, 130)     // ~130 m
+  const hexCoarse = hexBin(xy, 420)   // ~420 m
+
+  // contours via d3.contourDensity in a normalized 1000x1000 space
+  const xs = xy.map(p => p[0]), ys = xy.map(p => p[1])
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys)
+  const W = 1000, H = 1000 * (maxY - minY) / (maxX - minX)
+  const norm = xy.map(([x, y]) => [ (x - minX) / (maxX - minX) * W, H - (y - minY) / (maxY - minY) * H ])
+  const contours = d3.contourDensity().x(d => d[0]).y(d => d[1]).size([W, H]).bandwidth(7).thresholds(14)(norm)
+  const backLL = (px, py) => toLL(px / W * (maxX - minX) + minX, (H - py) / H * (maxY - minY) + minY)
+  const contourFC = { type: 'FeatureCollection', features: contours.map((c, i) => ({
+    type: 'Feature',
+    properties: { level: i / contours.length },
+    geometry: { type: 'MultiPolygon', coordinates: c.coordinates.map(poly => poly.map(ring => ring.map(([px, py]) => backLL(px, py)))) },
+  })) }
+
+  const streets = await (await fetch('data/streets.json')).json()
+
+  await new Promise(res => map.loaded() ? res() : map.on('load', res))
+  map.addSource('streets', { type: 'geojson', data: streets })
+  map.addSource('pts', { type: 'geojson', data: pts })
+  map.addSource('hexFine', { type: 'geojson', data: hexFine })
+  map.addSource('hexCoarse', { type: 'geojson', data: hexCoarse })
+  map.addSource('contours', { type: 'geojson', data: contourFC })
+
+  // 1 — firefly
+  map.addLayer({ id: 'fly-glow', type: 'circle', source: 'pts', paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 2.6, 15, 7], 'circle-color': '#ffb84d', 'circle-opacity': 0.06, 'circle-blur': 1.6 } })
+  map.addLayer({ id: 'fly-core', type: 'circle', source: 'pts', paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 1.1, 15, 3], 'circle-color': '#ffe9c4', 'circle-opacity': 0.35 } })
+
+  // 2 — hex choropleth
+  map.addLayer({ id: 'hex-fill', type: 'fill', source: 'hexFine', paint: {
+    'fill-color': hexColorExpr(hexFine), 'fill-opacity': 0.55 } })
+  map.addLayer({ id: 'hex-line', type: 'line', source: 'hexFine', paint: {
+    'line-color': 'rgba(0,0,0,0.35)', 'line-width': 0.5 } })
+
+  // 3 — street segments
+  const sCounts = streets.features.map(f => f.properties.n).sort((a, b) => a - b)
+  const sq = p => sCounts[Math.min(sCounts.length - 1, Math.floor(p * sCounts.length))]
+  const streetColor = ['step', ['get', 'n'], HEAT[0], sq(.6), HEAT[1], sq(.85), HEAT[2], sq(.95), HEAT[3], sq(.99), HEAT[4]]
+  const streetOpacity = ['step', ['get', 'n'], 0.45, sq(.6), 0.7, sq(.85), 0.95]
+  map.addLayer({ id: 'street-glow', type: 'line', source: 'streets',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': streetColor,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 11, 3, 14, 8, 16, 16],
+      'line-opacity': 0.18, 'line-blur': 4 } })
+  map.addLayer({ id: 'street-line', type: 'line', source: 'streets',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': streetColor,
+      'line-width': ['interpolate', ['linear'], ['zoom'],
+        11, ['step', ['get', 'n'], 1, sq(.8), 1.6, sq(.95), 2.2],
+        14, ['step', ['get', 'n'], 2.4, sq(.8), 3.6, sq(.95), 5],
+        16, ['step', ['get', 'n'], 4, sq(.8), 6, sq(.95), 8]],
+      'line-opacity': streetOpacity } })
+
+  const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false })
+  map.on('mousemove', 'street-line', (e) => {
+    const p = e.features[0].properties
+    map.getCanvas().style.cursor = 'pointer'
+    popup.setLngLat(e.lngLat).setHTML(
+      `<div style="font-weight:600">${p.s}</div><div style="color:#888;font-size:11px">${p.f} → ${p.t} · ${p.n} incidents</div>`
+    ).addTo(map)
+  })
+  map.on('mouseleave', 'street-line', () => { map.getCanvas().style.cursor = ''; popup.remove() })
+
+  // 4 — contours
+  map.addLayer({ id: 'contour-fill', type: 'fill', source: 'contours', paint: {
+    'fill-color': ['interpolate', ['linear'], ['get', 'level'], 0, HEAT[0], .35, HEAT[1], .6, HEAT[2], .8, HEAT[3], 1, HEAT[4]],
+    'fill-opacity': 0.09 } })
+  map.addLayer({ id: 'contour-line', type: 'line', source: 'contours', paint: {
+    'line-color': ['interpolate', ['linear'], ['get', 'level'], 0, HEAT[1], .5, HEAT[2], .8, HEAT[3], 1, HEAT[4]],
+    'line-width': ['interpolate', ['linear'], ['get', 'level'], 0, 0.6, 1, 1.8],
+    'line-opacity': 0.85 } })
+
+  // 5 — 3D columns
+  map.addLayer({ id: 'hex-3d', type: 'fill-extrusion', source: 'hexFine', paint: {
+    'fill-extrusion-color': hexColorExpr(hexFine),
+    'fill-extrusion-height': ['*', ['get', 'count'], 9],
+    'fill-extrusion-opacity': 0.82 } })
+
+  // 6 — hybrid: coarse calm shading + dots on zoom
+  map.addLayer({ id: 'hyb-fill', type: 'fill', source: 'hexCoarse', paint: {
+    'fill-color': hexColorExpr(hexCoarse),
+    'fill-opacity': ['interpolate', ['linear'], ['zoom'], 13.2, 0.34, 14.6, 0.06] } })
+  map.addLayer({ id: 'hyb-dots', type: 'circle', source: 'pts', minzoom: 13.2, paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 13.2, 1.5, 17, 5],
+    'circle-color': '#ffd166',
+    'circle-opacity': ['interpolate', ['linear'], ['zoom'], 13.2, 0, 14.6, 0.8] } })
+
+  return { all: ['fly-glow', 'fly-core', 'hex-fill', 'hex-line', 'street-glow', 'street-line', 'contour-fill', 'contour-line', 'hex-3d', 'hyb-fill', 'hyb-dots'] }
+})()
+
+// ---------- modes ----------
+const MODES = {
+  firefly: { layers: ['fly-glow', 'fly-core'], pitch: 0,
+    note: '<b>Firefly dots</b> — every incident is one faint glow; density is real, unsmoothed, and the dots ARE the click targets.' },
+  hex: { layers: ['hex-fill', 'hex-line'], pitch: 0,
+    note: '<b>Hex choropleth</b> — honest edges, clickable cells with real counts; the foundation for grades and percentiles.' },
+  streets: { layers: ['street-glow', 'street-line'], pitch: 0,
+    note: '<b>Street segments</b> — every incident snapped to its real block (100% within 60 m). Hover any street for its name and count.' },
+  contour: { layers: ['contour-fill', 'contour-line'], pitch: 0,
+    note: '<b>Contours</b> — “danger topography”: the Tenderloin as a peak. Editorial look, same smoothing caveats as a heatmap.' },
+  columns: { layers: ['hex-3d'], pitch: 55, bearing: -18,
+    note: '<b>3D columns</b> — drag to orbit. Height = incidents. Dramatic, especially animated by hour.' },
+  hybrid: { layers: ['hyb-fill', 'hyb-dots'], pitch: 0,
+    note: '<b>Hybrid</b> — calm coarse shading zoomed out; zoom into any area and it dissolves into raw dots. Zoom in to feel it.' },
+}
+const LABELS = { firefly: 'Firefly', hex: 'Hexes', streets: 'Streets', contour: 'Contours', columns: '3D Columns', hybrid: 'Hybrid' }
+
+const bar = document.getElementById('bar')
+for (const key of Object.keys(MODES)) {
+  const b = document.createElement('button')
+  b.textContent = LABELS[key]
+  b.id = 'btn-' + key
+  b.onclick = () => setMode(key)
+  bar.appendChild(b)
+}
+
+async function setMode(key) {
+  const { all } = await ready
+  const m = MODES[key]
+  for (const id of all) map.setLayoutProperty(id, 'visibility', m.layers.includes(id) ? 'visible' : 'none')
+  map.easeTo({ pitch: m.pitch, bearing: m.bearing || 0, duration: 700 })
+  document.getElementById('note').innerHTML = m.note
+  document.querySelectorAll('.bar button').forEach(x => x.classList.toggle('active', x.id === 'btn-' + key))
+}
+setMode('firefly')
+</script>
+</body>
+</html>
