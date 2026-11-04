@@ -236,24 +236,40 @@ html, body, #root {
 }
 .close-btn:hover { color: var(--text); }
 
-/* ---------- spot card & notice ---------- */
-.spot-stats {
-  display: flex; gap: 10px; padding: 12px 16px 4px;
+/* ---------- spot card ---------- */
+.card-sub {
+  padding: 0 16px 2px; margin-top: -10px; font-size: 11px; color: var(--text-dim);
 }
-.spot-stats div {
-  flex: 1; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px; padding: 10px 12px;
+.cmp { padding: 12px 16px 14px; }
+.cmp-row { display: flex; align-items: center; gap: 10px; font-size: 11.5px; }
+.cmp-row + .cmp-row { margin-top: 8px; }
+.cmp-name { width: 76px; color: var(--text-dim); flex-shrink: 0; }
+.cmp-track { flex: 1; height: 16px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.cmp-track i { display: block; height: 100%; border-radius: 5px; transition: width 0.3s ease; }
+.cmp-track i.good { background: #7ddf8a; }
+.cmp-track i.mid { background: var(--amber); }
+.cmp-track i.bad { background: #ef5350; }
+.cmp-track i.base { background: rgba(255, 255, 255, 0.3); }
+.cmp-val { width: 46px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.cmp-val.dim { color: var(--text-dim); font-weight: 500; }
+
+/* expandable incident rows (spot card) */
+.spot-card li { display: block; padding: 0; cursor: pointer; }
+.spot-card .li-head { display: flex; gap: 10px; padding: 9px 16px; align-items: flex-start; }
+.spot-card .li-head:hover { background: rgba(255, 255, 255, 0.04); }
+.spot-card .li-caret {
+  margin-left: auto; margin-top: 4px; color: var(--text-dim); font-size: 9px;
+  transition: transform 0.15s;
 }
-.spot-stats b { display: block; font-size: 21px; font-weight: 700; letter-spacing: -0.3px; }
-.spot-stats b.good { color: #7ddf8a; }
-.spot-stats b.mid { color: var(--amber); }
-.spot-stats b.bad { color: #ef5350; }
-.spot-stats span { font-size: 10.5px; color: var(--text-dim); }
-.spot-top {
-  display: flex; flex-wrap: wrap; gap: 6px 14px;
-  padding: 10px 16px 4px; font-size: 11.5px; color: #cdd1d5;
+.spot-card li.open .li-caret { transform: rotate(90deg); }
+.incident-meta b { color: #cdd1d5; font-weight: 500; }
+.li-detail {
+  display: grid; grid-template-columns: auto 1fr; gap: 3px 14px;
+  padding: 2px 16px 12px 35px; font-size: 11.5px;
+  animation: sheet-up 0.15s ease;
 }
-.spot-top .cat-dot { display: inline-block; margin-right: 5px; }
+.li-detail span { color: var(--text-dim); }
+.li-detail b { font-weight: 500; color: #e3e5e8; }
 .notice {
   position: absolute; top: calc(58px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
   z-index: 35; max-width: min(420px, 88vw); text-align: center;

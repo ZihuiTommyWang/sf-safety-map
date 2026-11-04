@@ -138,9 +138,10 @@ export interface SpotStats {
   count: number
   /** Incident density here vs. the citywide average, under the same filters. */
   mult: number
-  top: { id: string; label: string; count: number }[]
-  /** Indices of the most recent incidents in the radius, newest first. */
-  recent: number[]
+  /** What an average SF spot of the same radius would see, same filters. */
+  typical: number
+  /** The most recent incidents in the radius, newest first, with distance. */
+  recent: { i: number; dist: number }[]
 }
 
 const SF_LAND_M2 = 121e6 // ~121 km² of land
@@ -155,26 +156,25 @@ export function spotStats(
   const inc = bundle.incidents
   const r2 = radiusM * radiusM
   const [d0, d1] = f.dayRange
-  const catCount = new Map<number, number>()
-  const idx: number[] = []
+  const local: { i: number; dist: number }[] = []
   for (let i = 0; i < inc.n; i++) {
     if (!f.cats.has(inc.cat[i])) continue
     if (inc.day[i] < d0 || inc.day[i] > d1) continue
     const dx = (inc.lng[i] - lng) * MXm
     const dy = (inc.lat[i] - lat) * MYm
-    if (dx * dx + dy * dy > r2) continue
-    idx.push(i)
-    catCount.set(inc.cat[i], (catCount.get(inc.cat[i]) || 0) + 1)
+    const distSq = dx * dx + dy * dy
+    if (distSq > r2) continue
+    local.push({ i, dist: Math.round(Math.sqrt(distSq)) })
   }
-  idx.sort((a, b) => inc.day[b] - inc.day[a])
-  const cityDensity = countFiltered(inc, f) / SF_LAND_M2
+  local.sort((a, b) => inc.day[b.i] - inc.day[a.i])
   const area = Math.PI * r2
-  const mult = cityDensity > 0 ? idx.length / area / cityDensity : 0
-  const top = [...catCount.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([c, count]) => ({ id: bundle.meta.categories[c].id, label: bundle.meta.categories[c].label, count }))
-  return { count: idx.length, mult, top, recent: idx.slice(0, 8) }
+  const typical = (countFiltered(inc, f) / SF_LAND_M2) * area
+  return {
+    count: local.length,
+    mult: typical > 0 ? local.length / typical : 0,
+    typical: Math.round(typical),
+    recent: local.slice(0, 10),
+  }
 }
 
 /**

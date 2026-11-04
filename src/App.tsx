@@ -150,22 +150,35 @@ export default function App() {
     [bundle, filter, searchTarget],
   )
 
-  const spotRecent: PickedIncident[] = useMemo(() => {
+  const spotRecent = useMemo(() => {
     if (!bundle || !spot) return []
     const { incidents, meta } = bundle
-    return spot.recent.map((i) => {
+    const relDay = (d: number) => {
+      const n = meta.maxDay - d
+      return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n < 60 ? `${n} days ago` : dayToISO(d)
+    }
+    const longDay = (d: number) =>
+      new Date(Date.UTC(2018, 0, 1) + d * 86400000).toLocaleDateString('en-US', {
+        month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+      })
+    return spot.recent.map(({ i, dist }) => {
       const cat = meta.categories[incidents.cat[i]]
+      const resRaw = incidents.resolutions[incidents.res[i]]
       return {
         catId: cat.id,
         catLabel: cat.label,
         desc: incidents.descs[incidents.desc[i]],
-        date: dayToISO(incidents.day[i]),
-        hour: formatHour(incidents.hour[i]),
-        resolution: incidents.resolutions[incidents.res[i]],
-        day: incidents.day[i],
+        rel: relDay(incidents.day[i]),
+        longDate: longDay(incidents.day[i]),
+        hour: incidents.hour[i] >= 24 ? 'not recorded' : formatHour(incidents.hour[i]),
+        outcome: resRaw.includes('Open') ? 'Unresolved (open or active)' : resRaw,
+        dist,
       }
     })
   }, [bundle, spot])
+
+  const [expandedIncident, setExpandedIncident] = useState(-1)
+  useEffect(() => setExpandedIncident(-1), [searchTarget])
 
   const onPick = (indices: number[]) => {
     setSpotOpen(false)
@@ -272,44 +285,69 @@ export default function App() {
               ✕
             </button>
           </div>
-          <div className="spot-stats">
-            <div>
-              <b>{spot.count.toLocaleString()}</b>
-              <span>incidents · 300 m</span>
+          <div className="card-sub">within 300 m · {timeLabel === 'Year' ? 'last 12 months' : timeLabel.toLowerCase()}</div>
+          <div className="cmp">
+            <div className="cmp-row">
+              <span className="cmp-name">This spot</span>
+              <div className="cmp-track">
+                <i
+                  className={spot.mult < 1 ? 'good' : spot.mult < 2.5 ? 'mid' : 'bad'}
+                  style={{ width: `${Math.round((100 * spot.count) / Math.max(spot.count, spot.typical, 1))}%` }}
+                />
+              </div>
+              <span className="cmp-val">{spot.count.toLocaleString()}</span>
             </div>
-            <div>
-              <b className={spot.mult < 1 ? 'good' : spot.mult < 2.5 ? 'mid' : 'bad'}>
-                {spot.mult.toFixed(1)}×
-              </b>
-              <span>city average</span>
+            <div className="cmp-row">
+              <span className="cmp-name">Typical SF</span>
+              <div className="cmp-track">
+                <i
+                  className="base"
+                  style={{ width: `${Math.round((100 * spot.typical) / Math.max(spot.count, spot.typical, 1))}%` }}
+                />
+              </div>
+              <span className="cmp-val dim">{spot.typical.toLocaleString()}</span>
             </div>
           </div>
-          {spot.top.length > 0 && (
-            <div className="spot-top">
-              {spot.top.map((t) => (
-                <span key={t.id}>
-                  <i className="cat-dot" style={{ background: CATEGORY_COLORS[t.id] ?? FALLBACK_DOT_COLOR }} />
-                  {t.label} · {t.count}
-                </span>
-              ))}
-            </div>
-          )}
           <ul>
             {spotRecent.map((it, i) => (
-              <li key={i}>
-                <span
-                  className="cat-dot"
-                  style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }}
-                />
-                <div>
-                  <div className="incident-desc">{it.desc}</div>
-                  <div className="incident-meta">
-                    {it.catLabel} · {it.date} · {it.hour} · {it.resolution}
+              <li
+                key={i}
+                className={expandedIncident === i ? 'open' : ''}
+                onClick={() => setExpandedIncident(expandedIncident === i ? -1 : i)}
+              >
+                <div className="li-head">
+                  <span
+                    className="cat-dot"
+                    style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }}
+                  />
+                  <div>
+                    <div className="incident-desc">{it.desc}</div>
+                    <div className="incident-meta">
+                      <b>{it.rel}</b> · {it.dist} m away
+                    </div>
                   </div>
+                  <span className="li-caret">▶</span>
                 </div>
+                {expandedIncident === i && (
+                  <div className="li-detail">
+                    <span>Category</span>
+                    <b>{it.catLabel}</b>
+                    <span>Date</span>
+                    <b>{it.longDate}</b>
+                    <span>Time</span>
+                    <b>{it.hour}</b>
+                    <span>Outcome</span>
+                    <b>{it.outcome}</b>
+                    <span>Distance</span>
+                    <b>{it.dist} m from this spot</b>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
+          {spot.count > spotRecent.length && (
+            <div className="incident-more">…and {(spot.count - spotRecent.length).toLocaleString()} more in this radius</div>
+          )}
         </div>
       )}
 
