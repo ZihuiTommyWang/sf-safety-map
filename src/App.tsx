@@ -261,7 +261,9 @@ export default function App() {
       <Dock
         selectedCount={catSel.size}
         totalCount={bundle.meta.categories.length}
-        timeLabel={timeLabel}
+        timeBadge={
+          timeLabel === 'Year' ? 'year' : timeLabel === '30 days' ? '30 d' : timeLabel === '6 months' ? '6 mo' : 'custom'
+        }
         sheet={sheet}
         setSheet={setSheet}
       />
@@ -376,11 +378,7 @@ export default function App() {
       )}
 
       {methodologyOpen && (
-        <MethodologyModal
-          built={bundle.meta.built}
-          total={bundle.meta.total}
-          onClose={() => setMethodologyOpen(false)}
-        />
+        <MethodologyModal total={bundle.meta.total} onClose={() => setMethodologyOpen(false)} />
       )}
     </div>
   )

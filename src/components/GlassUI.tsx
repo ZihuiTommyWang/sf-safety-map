@@ -10,12 +10,12 @@ export type SheetKind = 'none' | 'filters' | 'time' | 'search'
 interface DockProps {
   selectedCount: number
   totalCount: number
-  timeLabel: string
+  timeBadge: string
   sheet: SheetKind
   setSheet: (s: SheetKind) => void
 }
 
-export function Dock({ selectedCount, totalCount, timeLabel, sheet, setSheet }: DockProps) {
+export function Dock({ selectedCount, totalCount, timeBadge, sheet, setSheet }: DockProps) {
   const toggle = (s: SheetKind) => setSheet(sheet === s ? 'none' : s)
   return (
     <div className="dock">
@@ -30,7 +30,7 @@ export function Dock({ selectedCount, totalCount, timeLabel, sheet, setSheet }: 
         className={`dock-pill ${sheet === 'filters' ? 'on' : ''}`}
         onClick={() => toggle('filters')}
       >
-        Categories
+        Crimes
         <span className="dock-pill-count">
           {selectedCount === totalCount ? 'all' : `${selectedCount}/${totalCount}`}
         </span>
@@ -39,8 +39,8 @@ export function Dock({ selectedCount, totalCount, timeLabel, sheet, setSheet }: 
         className={`dock-pill ${sheet === 'time' ? 'on' : ''}`}
         onClick={() => toggle('time')}
       >
-        {timeLabel}
-        <span className="dock-pill-caret">▾</span>
+        Time
+        <span className="dock-pill-count">{timeBadge}</span>
       </button>
     </div>
   )

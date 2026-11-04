@@ -1,10 +1,9 @@
 interface Props {
-  built: string
   total: number
   onClose: () => void
 }
 
-export default function MethodologyModal({ built, total, onClose }: Props) {
+export default function MethodologyModal({ total, onClose }: Props) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -16,13 +15,6 @@ export default function MethodologyModal({ built, total, onClose }: Props) {
             DataSF
           </a>
           , refreshed nightly. Brighter means more incidents nearby.
-        </p>
-        <p className="modal-footnote">
-          Updated {built.slice(0, 10)} · free &{' '}
-          <a href="https://github.com/ZihuiTommyWang/sf-safety-map" target="_blank" rel="noreferrer">
-            open source
-          </a>{' '}
-          · no ads or tracking · basemap © CARTO, © OpenStreetMap
         </p>
       </div>
     </div>
