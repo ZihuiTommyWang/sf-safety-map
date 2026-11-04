@@ -4,21 +4,24 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, SF_CENTER, SF_BOUNDS, INITIAL_ZOOM, MIN_ZOOM, EXPOSURE } from '../config'
 import type { DataBundle, FilterState } from '../data'
 import { toMapFilter } from '../data'
+import type { SearchTarget } from './GlassUI'
 
 interface Props {
   bundle: DataBundle
   filter: FilterState
   /** Bumped whenever exposure tiers were rewritten in bundle.geojson. */
   tierVersion: number
+  searchTarget: SearchTarget | null
   onPick: (indices: number[]) => void
 }
 
 const tierMatch = (values: readonly number[]) =>
   ['match', ['get', 't'], 0, values[0], 1, values[1], 2, values[2], 3, values[3], values[4]]
 
-export default function MapView({ bundle, filter, tierVersion, onPick }: Props) {
+export default function MapView({ bundle, filter, tierVersion, searchTarget, onPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const markerRef = useRef<maplibregl.Marker | null>(null)
   const readyRef = useRef(false)
   const onPickRef = useRef(onPick)
   onPickRef.current = onPick
@@ -100,6 +103,16 @@ export default function MapView({ bundle, filter, tierVersion, onPick }: Props) 
     if (!map || !readyRef.current) return
     applyFilters(map, filter)
   }, [filter])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !searchTarget) return
+    markerRef.current?.remove()
+    markerRef.current = new maplibregl.Marker({ color: '#ffb84d' })
+      .setLngLat([searchTarget.lng, searchTarget.lat])
+      .addTo(map)
+    map.flyTo({ center: [searchTarget.lng, searchTarget.lat], zoom: 15.6, duration: 1600 })
+  }, [searchTarget])
 
   // Tiers were rewritten in place — push the updated GeoJSON to the GPU.
   useEffect(() => {

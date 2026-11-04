@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MapView from './components/MapView'
-import Sidebar from './components/Sidebar'
-import TimeScrubber from './components/TimeScrubber'
+import { Dock, TimeSheet, FilterSheet, SearchSheet } from './components/GlassUI'
+import type { SheetKind, SearchTarget } from './components/GlassUI'
 import MethodologyModal from './components/MethodologyModal'
 import type { DataBundle, FilterState } from './data'
 import { loadData, countFiltered, applyTiers, dayToISO, isoToDay, formatHour } from './data'
@@ -51,7 +51,8 @@ export default function App() {
   const [scrubActive, setScrubActive] = useState(false)
   const [scrubHour, setScrubHour] = useState(20)
   const [scrubPlaying, setScrubPlaying] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 720)
+  const [sheet, setSheet] = useState<SheetKind>('none')
+  const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null)
   const [methodologyOpen, setMethodologyOpen] = useState(false)
   const [picked, setPicked] = useState<PickedIncident[] | null>(null)
   const [hasPicked, setHasPicked] = useState(false)
@@ -198,23 +199,22 @@ export default function App() {
 
   return (
     <div className="app">
-      <MapView bundle={bundle} filter={filter} tierVersion={tierVersion} onPick={onPick} />
-
-      <Sidebar
-        meta={bundle.meta}
-        open={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-        catSel={catSel}
-        setCatSel={setCatSel}
-        activePreset={activePreset}
-        applyPreset={applyPreset}
-        dayRange={dayRange}
-        setDayRange={setDayRange}
-        hourRange={hourRange}
-        setHourRange={setHourRange}
-        shownCount={shownCount}
-        onMethodology={() => setMethodologyOpen(true)}
+      <MapView
+        bundle={bundle}
+        filter={filter}
+        tierVersion={tierVersion}
+        searchTarget={searchTarget}
+        onPick={onPick}
       />
+
+      <div className="count-capsule">
+        <b>{shownCount.toLocaleString()}</b> incidents
+        {scrubActive && <span className="capsule-hour"> · {formatHour(scrubHour)}</span>}
+      </div>
+
+      {!hasPicked && (
+        <div className="zoom-hint">Every glow is one real incident — tap any of them to read what happened</div>
+      )}
 
       <div className="legend">
         <span>Quiet</span>
@@ -222,17 +222,40 @@ export default function App() {
         <span>Intense</span>
       </div>
 
-      {!hasPicked && (
-        <div className="zoom-hint">Every glow is one real incident — click any of them to read what happened</div>
+      {sheet === 'time' && (
+        <TimeSheet
+          hourRange={hourRange}
+          setHourRange={setHourRange}
+          scrubActive={scrubActive}
+          scrubHour={scrubHour}
+          scrubPlaying={scrubPlaying}
+          setScrubActive={setScrubActive}
+          setScrubHour={setScrubHour}
+          setScrubPlaying={setScrubPlaying}
+        />
+      )}
+      {sheet === 'filters' && (
+        <FilterSheet
+          meta={bundle.meta}
+          catSel={catSel}
+          setCatSel={setCatSel}
+          activePreset={activePreset}
+          applyPreset={applyPreset}
+          dayRange={dayRange}
+          setDayRange={setDayRange}
+          onMethodology={() => setMethodologyOpen(true)}
+        />
+      )}
+      {sheet === 'search' && (
+        <SearchSheet onResult={setSearchTarget} onClose={() => setSheet('none')} />
       )}
 
-      <TimeScrubber
-        active={scrubActive}
-        hour={scrubHour}
-        playing={scrubPlaying}
-        setActive={setScrubActive}
-        setHour={setScrubHour}
-        setPlaying={setScrubPlaying}
+      <Dock
+        meta={bundle.meta}
+        activePreset={activePreset}
+        applyPreset={applyPreset}
+        sheet={sheet}
+        setSheet={setSheet}
       />
 
       {picked && (
