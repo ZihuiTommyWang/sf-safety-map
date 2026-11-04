@@ -191,6 +191,7 @@ export function Sheet(p: SheetProps) {
           </button>
         )}
       </div>
+      <div className="sheet-fold">
       <div className="sheet-filters">
         <button className={panel === 'crimes' ? 'on' : ''} onClick={() => togglePanel('crimes')}>
           Crimes · <b>{p.catSel.size === p.meta.categories.length ? 'All' : `${p.catSel.size}/${p.meta.categories.length}`}</b>
@@ -298,6 +299,7 @@ export function Sheet(p: SheetProps) {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

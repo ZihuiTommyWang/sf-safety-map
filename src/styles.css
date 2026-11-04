@@ -22,6 +22,13 @@ html, body, #root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 14px;
 }
+/* Pin the page so iOS Safari can never scroll or bounce the app itself. */
+body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+}
 
 .app, .map-container { position: absolute; inset: 0; }
 
@@ -89,7 +96,7 @@ html, body, #root {
 }
 .sheet-search input {
   flex: 1; min-width: 0; background: none; border: none; outline: none;
-  color: var(--text); font-size: 14px; padding: 10px 0;
+  color: var(--text); font-size: 16px; padding: 10px 0;
 }
 .sheet-search input::placeholder { color: var(--text-dim); }
 .sheet-search:focus-within { border-color: rgba(255, 255, 255, 0.22); }
@@ -115,8 +122,12 @@ html, body, #root {
   overscroll-behavior: contain;
   touch-action: pan-y;
 }
-.sheet-shell.min .sheet-body,
-.sheet-shell.min .sheet-filters { display: none; }
+.sheet-fold {
+  max-height: 80vh;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+.sheet-shell.min .sheet-fold { max-height: 0; }
 .sheet-grab { touch-action: none; }
 .sheet-note { margin: 8px 0 0; font-size: 11px; color: var(--text-dim); line-height: 1.5; }
 .sheet-note.error { color: #ef9a9a; }
@@ -149,7 +160,7 @@ html, body, #root {
 .date-row input {
   flex: 1; min-width: 0;
   background: var(--bg); border: 1px solid var(--line); border-radius: var(--r);
-  color: var(--text); padding: 8px 10px; font-size: 12.5px;
+  color: var(--text); padding: 8px 10px; font-size: 16px;
 }
 
 /* search suggestions */
