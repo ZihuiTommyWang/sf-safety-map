@@ -158,39 +158,75 @@ interface SearchSheetProps {
   onClose: () => void
 }
 
+interface Suggestion {
+  lng: number
+  lat: number
+  title: string
+  sub: string
+}
+
+const SF_BBOX = { minLng: -122.55, maxLng: -122.33, minLat: 37.68, maxLat: 37.84 }
+
 export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
   const [q, setQ] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [sugs, setSugs] = useState<Suggestion[]>([])
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const seqRef = useRef(0)
   useEffect(() => inputRef.current?.focus(), [])
 
-  const go = async () => {
+  // Live suggestions via Photon (OSM geocoder built for autocomplete), biased
+  // and bounded to SF.
+  useEffect(() => {
     const query = q.trim()
-    if (!query || busy) return
-    setBusy(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams({
-        format: 'jsonv2',
-        limit: '1',
-        viewbox: '-122.55,37.84,-122.33,37.68',
-        bounded: '1',
-        q: query,
-      })
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
-      const rows = (await res.json()) as { lon: string; lat: string; display_name: string }[]
-      if (!rows.length) {
-        setError('Nothing found in SF — try a street address or place name.')
-        return
-      }
-      onResult({ lng: Number(rows[0].lon), lat: Number(rows[0].lat), label: rows[0].display_name, id: Date.now() })
-      onClose()
-    } catch {
-      setError('Search failed — check your connection and try again.')
-    } finally {
-      setBusy(false)
+    if (query.length < 3) {
+      setSugs([])
+      setError(null)
+      return
     }
+    const seq = ++seqRef.current
+    const t = window.setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({
+          q: query,
+          limit: '6',
+          lat: '37.7749',
+          lon: '-122.4194',
+          bbox: `${SF_BBOX.minLng},${SF_BBOX.minLat},${SF_BBOX.maxLng},${SF_BBOX.maxLat}`,
+        })
+        const res = await fetch(`https://photon.komoot.io/api/?${params}`)
+        const data = (await res.json()) as {
+          features: { geometry: { coordinates: [number, number] }; properties: Record<string, string> }[]
+        }
+        if (seq !== seqRef.current) return
+        const seen = new Set<string>()
+        const out: Suggestion[] = []
+        for (const f of data.features ?? []) {
+          const [lng, lat] = f.geometry.coordinates
+          if (lng < SF_BBOX.minLng || lng > SF_BBOX.maxLng || lat < SF_BBOX.minLat || lat > SF_BBOX.maxLat) continue
+          const p = f.properties
+          const title = p.housenumber && p.street ? `${p.housenumber} ${p.street}` : p.name || p.street
+          if (!title) continue
+          const sub = [p.name && p.street && !p.housenumber ? p.street : null, p.district, p.city]
+            .filter((x): x is string => Boolean(x && x !== title))
+            .join(' · ')
+          const key = `${title}|${sub}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          out.push({ lng, lat, title, sub })
+        }
+        setSugs(out)
+        setError(out.length ? null : 'Nothing found in SF — try a street address or place name.')
+      } catch {
+        if (seq === seqRef.current) setError('Search failed — check your connection and try again.')
+      }
+    }, 250)
+    return () => window.clearTimeout(t)
+  }, [q])
+
+  const pick = (s: Suggestion) => {
+    onResult({ lng: s.lng, lat: s.lat, label: s.sub ? `${s.title}, ${s.sub}` : s.title, id: Date.now() })
+    onClose()
   }
 
   return (
@@ -202,16 +238,25 @@ export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
           placeholder="Address or place in SF…"
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') go()
+            if (e.key === 'Enter' && sugs.length) pick(sugs[0])
             if (e.key === 'Escape') onClose()
           }}
         />
-        <button className="sheet-action inline" onClick={go} disabled={busy}>
-          {busy ? '…' : 'Go'}
-        </button>
       </div>
+      {sugs.length > 0 && (
+        <ul className="sug-list">
+          {sugs.map((s, i) => (
+            <li key={i}>
+              <button onClick={() => pick(s)}>
+                <span className="sug-title">{s.title}</span>
+                {s.sub && <span className="sug-sub">{s.sub}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {error && <p className="sheet-note error">{error}</p>}
-      <p className="sheet-note">Search by <a href="https://nominatim.org" target="_blank" rel="noreferrer">Nominatim</a> / OpenStreetMap.</p>
+      <p className="sheet-note">Search by <a href="https://photon.komoot.io" target="_blank" rel="noreferrer">Photon</a> / OpenStreetMap.</p>
     </div>
   )
 }

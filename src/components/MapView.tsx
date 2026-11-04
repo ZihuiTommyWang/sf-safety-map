@@ -21,6 +21,7 @@ const tierMatch = (values: readonly number[]) =>
 export default function MapView({ bundle, filter, tierVersion, searchTarget, onPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const markerRef = useRef<maplibregl.Marker | null>(null)
   const readyRef = useRef(false)
   const onPickRef = useRef(onPick)
   onPickRef.current = onPick
@@ -105,7 +106,13 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !searchTarget) return
+    if (!map) return
+    markerRef.current?.remove()
+    markerRef.current = null
+    if (!searchTarget) return
+    markerRef.current = new maplibregl.Marker({ color: '#ffb84d' })
+      .setLngLat([searchTarget.lng, searchTarget.lat])
+      .addTo(map)
     map.flyTo({ center: [searchTarget.lng, searchTarget.lat], zoom: 15.6, duration: 1600 })
   }, [searchTarget])
 
