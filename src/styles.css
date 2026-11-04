@@ -238,17 +238,18 @@ li.open .li-caret { transform: rotate(90deg); }
   .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group { display: none; } /* pinch to zoom */
 }
 
-/* ---------- desktop: the sheet becomes a left panel ---------- */
+/* ---------- desktop: the sheet floats free of the edge ---------- */
 @media (min-width: 721px) {
   .sheet-shell {
-    left: 16px; transform: none; bottom: 16px;
-    width: 380px;
+    bottom: 20px;
+    width: min(480px, calc(100vw - 32px));
     border-radius: 16px; border-bottom: 1px solid var(--line);
     padding-bottom: 0;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
   }
   .sheet-grab { display: none; }
   .sheet-search { margin-top: 14px; }
-  .sheet-body { max-height: calc(100vh - 240px); }
+  .sheet-body { max-height: min(52vh, 440px); }
   .sheet-card { margin-bottom: 0; }
   .sheet-card > :last-child { border-radius: 0 0 15px 15px; overflow: hidden; }
 }
