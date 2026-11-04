@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MapView from './components/MapView'
-import { Dock, FilterSheet, TimeSheet, SearchSheet } from './components/GlassUI'
-import type { SheetKind, SearchTarget } from './components/GlassUI'
+import { Sheet } from './components/GlassUI'
+import type { SearchTarget } from './components/GlassUI'
 import MethodologyModal from './components/MethodologyModal'
 import type { DataBundle, FilterState } from './data'
 import { loadData, countFiltered, applyTiers, spotStats, dayToISO, isoToDay, formatHour } from './data'
@@ -42,7 +42,6 @@ export default function App() {
 
   const [catSel, setCatSel] = useState<Set<string>>(new Set())
   const [dayRange, setDayRange] = useState<[number, number]>([0, 0])
-  const [sheet, setSheet] = useState<SheetKind>('none')
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null)
   const [spotOpen, setSpotOpen] = useState(false)
   const [methodologyOpen, setMethodologyOpen] = useState(false)
@@ -127,19 +126,19 @@ export default function App() {
       if (dayRange[0] === maxDay - 29) return '30 days'
       if (dayRange[0] === maxDay - 182) return '6 months'
     }
-    const fmt = (d: number) =>
-      new Date(Date.UTC(2018, 0, 1) + d * 86400000).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        timeZone: 'UTC',
-      })
-    return `${fmt(dayRange[0])} – ${fmt(dayRange[1])}`
+    return 'custom'
   }, [bundle, dayRange])
 
   const openSpot = (target: SearchTarget) => {
     setPicked(null)
     setSearchTarget(target)
     setSpotOpen(true)
+  }
+
+  const closeContent = () => {
+    setSpotOpen(false)
+    setSearchTarget(null)
+    setPicked(null)
   }
 
   // Live stats for the open spot; re-derives when filters change.
@@ -180,6 +179,7 @@ export default function App() {
 
   const onPick = (indices: number[]) => {
     setSpotOpen(false)
+    setSearchTarget(null)
     if (!bundle) return
     const { incidents, meta } = bundle
     const seen = new Set<number>()
@@ -214,10 +214,107 @@ export default function App() {
     return (
       <div className="loading-screen">
         <div className="spinner" />
-        <p>Loading {`88,000+`} SF incidents…</p>
+        <p>Loading SF incidents…</p>
       </div>
     )
   }
+
+  const sheetContent =
+    spotOpen && searchTarget && spot ? (
+      <div className="sheet-card">
+        <div className="sheet-card-header">
+          <strong>
+            {searchTarget.label.split(',').slice(0, 2).join(', ')}
+            <span className="card-sub">
+              within 300 m · {timeLabel === 'Year' ? 'last 12 months' : timeLabel === 'custom' ? 'custom dates' : `last ${timeLabel}`}
+            </span>
+          </strong>
+          <button className="close-btn" onClick={closeContent} aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="cmp">
+          <div className="cmp-row">
+            <span className="cmp-name">This spot</span>
+            <div className="cmp-track">
+              <i
+                className={spot.mult < 1 ? 'good' : spot.mult < 2.5 ? 'mid' : 'bad'}
+                style={{ width: `${Math.round((100 * spot.count) / Math.max(spot.count, spot.typical, 1))}%` }}
+              />
+            </div>
+            <span className="cmp-val">{spot.count.toLocaleString()}</span>
+          </div>
+          <div className="cmp-row">
+            <span className="cmp-name">Typical SF</span>
+            <div className="cmp-track">
+              <i
+                className="base"
+                style={{ width: `${Math.round((100 * spot.typical) / Math.max(spot.count, spot.typical, 1))}%` }}
+              />
+            </div>
+            <span className="cmp-val dim">{spot.typical.toLocaleString()}</span>
+          </div>
+        </div>
+        <ul>
+          {spotRecent.map((it, i) => (
+            <li
+              key={i}
+              className={expandedIncident === i ? 'open' : ''}
+              onClick={() => setExpandedIncident(expandedIncident === i ? -1 : i)}
+            >
+              <div className="li-head">
+                <span className="cat-dot" style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }} />
+                <span className="incident-desc">{it.catLabel}</span>
+                <span className="li-date">{it.rel}</span>
+                <span className="li-caret">▶</span>
+              </div>
+              {expandedIncident === i && (
+                <div className="li-detail">
+                  <span>Details</span>
+                  <b>{it.desc}</b>
+                  <span>Date</span>
+                  <b>{it.longDate}</b>
+                  <span>Time</span>
+                  <b>{it.hour}</b>
+                  <span>Outcome</span>
+                  <b>{it.outcome}</b>
+                  <span>Distance</span>
+                  <b>{it.dist} m from this spot</b>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+        {spot.count > spotRecent.length && (
+          <div className="incident-more">…and {(spot.count - spotRecent.length).toLocaleString()} more in this radius</div>
+        )}
+      </div>
+    ) : picked ? (
+      <div className="sheet-card">
+        <div className="sheet-card-header">
+          <strong>
+            {picked.length} incident{picked.length === 1 ? '' : 's'} here
+          </strong>
+          <button className="close-btn" onClick={closeContent} aria-label="Close">
+            ×
+          </button>
+        </div>
+        <ul>
+          {picked.slice(0, 50).map((it, i) => (
+            <li key={i} className="plain">
+              <span className="cat-dot" style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }} />
+              <div>
+                <div className="incident-desc">{it.desc}</div>
+                <div className="incident-meta">
+                  {it.catLabel} · {it.date} · {it.hour} · {it.resolution}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {picked.length > 50 && <div className="incident-more">…and {picked.length - 50} more</div>}
+      </div>
+    ) : null
 
   return (
     <div className="app">
@@ -229,140 +326,28 @@ export default function App() {
         onPick={onPick}
       />
 
-      <button className="count-capsule" onClick={() => setMethodologyOpen(true)}>
-        <b>{shownCount.toLocaleString()}</b> incidents
-        {timeLabel !== 'Year' && <span className="capsule-dim"> · {timeLabel === '30 days' || timeLabel === '6 months' ? `last ${timeLabel}` : timeLabel}</span>}
-        <span className="capsule-info">ⓘ</span>
-      </button>
+      <div className="topbar">
+        <span className="wordmark">SF SAFETY</span>
+        <button className="count-chip" onClick={() => setMethodologyOpen(true)}>
+          <b>{shownCount.toLocaleString()}</b>
+          <span className="count-chip-info">ⓘ</span>
+        </button>
+      </div>
 
-      {sheet === 'filters' && (
-        <FilterSheet meta={bundle.meta} catSel={catSel} setCatSel={setCatSel} />
-      )}
-      {sheet === 'time' && (
-        <TimeSheet meta={bundle.meta} dayRange={dayRange} setDayRange={setDayRange} />
-      )}
-      {sheet === 'search' && (
-        <SearchSheet onResult={openSpot} onClose={() => setSheet('none')} />
-      )}
-
-      <Dock
-        selectedCount={catSel.size}
-        totalCount={bundle.meta.categories.length}
+      <Sheet
+        meta={bundle.meta}
+        catSel={catSel}
+        setCatSel={setCatSel}
+        dayRange={dayRange}
+        setDayRange={setDayRange}
         timeBadge={
           timeLabel === 'Year' ? 'year' : timeLabel === '30 days' ? '30 d' : timeLabel === '6 months' ? '6 mo' : 'custom'
         }
-        sheet={sheet}
-        setSheet={setSheet}
-      />
-
-      {spotOpen && searchTarget && spot && (
-        <div className="incident-card spot-card">
-          <div className="incident-card-header">
-            <strong>
-              {searchTarget.label.split(',').slice(0, 2).join(', ')}
-              <span className="card-sub">
-                within 300 m · {timeLabel === 'Year' ? 'last 12 months' : timeLabel.toLowerCase()}
-              </span>
-            </strong>
-            <button
-              className="close-btn"
-              onClick={() => {
-                setSpotOpen(false)
-                setSearchTarget(null)
-              }}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="cmp">
-            <div className="cmp-row">
-              <span className="cmp-name">This spot</span>
-              <div className="cmp-track">
-                <i
-                  className={spot.mult < 1 ? 'good' : spot.mult < 2.5 ? 'mid' : 'bad'}
-                  style={{ width: `${Math.round((100 * spot.count) / Math.max(spot.count, spot.typical, 1))}%` }}
-                />
-              </div>
-              <span className="cmp-val">{spot.count.toLocaleString()}</span>
-            </div>
-            <div className="cmp-row">
-              <span className="cmp-name">Typical SF</span>
-              <div className="cmp-track">
-                <i
-                  className="base"
-                  style={{ width: `${Math.round((100 * spot.typical) / Math.max(spot.count, spot.typical, 1))}%` }}
-                />
-              </div>
-              <span className="cmp-val dim">{spot.typical.toLocaleString()}</span>
-            </div>
-          </div>
-          <ul>
-            {spotRecent.map((it, i) => (
-              <li
-                key={i}
-                className={expandedIncident === i ? 'open' : ''}
-                onClick={() => setExpandedIncident(expandedIncident === i ? -1 : i)}
-              >
-                <div className="li-head">
-                  <span
-                    className="cat-dot"
-                    style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }}
-                  />
-                  <span className="incident-desc">{it.catLabel}</span>
-                  <span className="li-date">{it.rel}</span>
-                  <span className="li-caret">▶</span>
-                </div>
-                {expandedIncident === i && (
-                  <div className="li-detail">
-                    <span>Details</span>
-                    <b>{it.desc}</b>
-                    <span>Date</span>
-                    <b>{it.longDate}</b>
-                    <span>Time</span>
-                    <b>{it.hour}</b>
-                    <span>Outcome</span>
-                    <b>{it.outcome}</b>
-                    <span>Distance</span>
-                    <b>{it.dist} m from this spot</b>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-          {spot.count > spotRecent.length && (
-            <div className="incident-more">…and {(spot.count - spotRecent.length).toLocaleString()} more in this radius</div>
-          )}
-        </div>
-      )}
-
-      {picked && (
-        <div className="incident-card">
-          <div className="incident-card-header">
-            <strong>
-              {picked.length} incident{picked.length === 1 ? '' : 's'} here
-            </strong>
-            <button className="close-btn" onClick={() => setPicked(null)} aria-label="Close">✕</button>
-          </div>
-          <ul>
-            {picked.slice(0, 50).map((it, i) => (
-              <li key={i}>
-                <span
-                  className="cat-dot"
-                  style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }}
-                />
-                <div>
-                  <div className="incident-desc">{it.desc}</div>
-                  <div className="incident-meta">
-                    {it.catLabel} · {it.date} · {it.hour} · {it.resolution}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-          {picked.length > 50 && <div className="incident-more">…and {picked.length - 50} more</div>}
-        </div>
-      )}
+        onResult={openSpot}
+        onCollapse={closeContent}
+      >
+        {sheetContent}
+      </Sheet>
 
       {methodologyOpen && (
         <MethodologyModal total={bundle.meta.total} onClose={() => setMethodologyOpen(false)} />

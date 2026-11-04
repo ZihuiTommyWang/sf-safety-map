@@ -1,161 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { Meta } from '../data'
 import { dayToISO, isoToDay } from '../data'
 import { CATEGORY_COLORS, FALLBACK_DOT_COLOR } from '../config'
 import type { AddressIndex } from '../addressSearch'
 import { loadAddressIndex, searchAddresses } from '../addressSearch'
 
-export type SheetKind = 'none' | 'filters' | 'time' | 'search'
-
-interface DockProps {
-  selectedCount: number
-  totalCount: number
-  timeBadge: string
-  sheet: SheetKind
-  setSheet: (s: SheetKind) => void
-}
-
-export function Dock({ selectedCount, totalCount, timeBadge, sheet, setSheet }: DockProps) {
-  const toggle = (s: SheetKind) => setSheet(sheet === s ? 'none' : s)
-  return (
-    <div className="dock">
-      <button
-        className={`dock-round ${sheet === 'search' ? 'on' : ''}`}
-        onClick={() => toggle('search')}
-        aria-label="Search"
-      >
-        🔍
-      </button>
-      <button
-        className={`dock-pill ${sheet === 'filters' ? 'on' : ''}`}
-        onClick={() => toggle('filters')}
-      >
-        Crimes
-        <span className="dock-pill-count">
-          {selectedCount === totalCount ? 'all' : `${selectedCount}/${totalCount}`}
-        </span>
-      </button>
-      <button
-        className={`dock-pill ${sheet === 'time' ? 'on' : ''}`}
-        onClick={() => toggle('time')}
-      >
-        Time
-        <span className="dock-pill-count">{timeBadge}</span>
-      </button>
-    </div>
-  )
-}
-
-interface TimeSheetProps {
-  meta: Meta
-  dayRange: [number, number]
-  setDayRange: (r: [number, number]) => void
-}
-
-export function TimeSheet(p: TimeSheetProps) {
-  const { meta } = p
-  return (
-    <div className="sheet">
-      <div className="sheet-row sheet-head">
-        <span>Time window</span>
-        <span className="sheet-val">
-          {([
-            ['30 days', 29],
-            ['6 months', 182],
-            ['Year', meta.maxDay - meta.minDay],
-          ] as const).map(([label, span]) => {
-            const from = Math.max(meta.minDay, meta.maxDay - span)
-            const active = p.dayRange[0] === from && p.dayRange[1] === meta.maxDay
-            return (
-              <button
-                key={label}
-                className={`mini-chip ${active ? 'on' : ''}`}
-                onClick={() => p.setDayRange([from, meta.maxDay])}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </span>
-      </div>
-      <div className="date-row">
-        <input
-          type="date"
-          value={dayToISO(p.dayRange[0])}
-          min={dayToISO(meta.minDay)}
-          max={dayToISO(p.dayRange[1])}
-          onChange={(e) => e.target.value && p.setDayRange([isoToDay(e.target.value), p.dayRange[1]])}
-        />
-        <span>→</span>
-        <input
-          type="date"
-          value={dayToISO(p.dayRange[1])}
-          min={dayToISO(p.dayRange[0])}
-          max={dayToISO(meta.maxDay)}
-          onChange={(e) => e.target.value && p.setDayRange([p.dayRange[0], isoToDay(e.target.value)])}
-        />
-      </div>
-      <p className="sheet-note">The map, counts, and report cards all follow this window.</p>
-    </div>
-  )
-}
-
-interface FilterSheetProps {
-  meta: Meta
-  catSel: Set<string>
-  setCatSel: (s: Set<string>) => void
-}
-
-export function FilterSheet(p: FilterSheetProps) {
-  const { meta } = p
-  const toggleCat = (id: string) => {
-    const next = new Set(p.catSel)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    p.setCatSel(next)
-  }
-  return (
-    <div className="sheet">
-      <div className="sheet-row sheet-head">
-        <span>Categories</span>
-        <span className="sheet-val">
-          <button
-            className="mini-chip"
-            onClick={() => p.setCatSel(new Set(meta.categories.map((c) => c.id)))}
-          >
-            All
-          </button>
-          <button className="mini-chip" onClick={() => p.setCatSel(new Set())}>None</button>
-        </span>
-      </div>
-      <div className="cat-list">
-        {meta.categories.map((c) => (
-          <label key={c.id} className="cat-row">
-            <input type="checkbox" checked={p.catSel.has(c.id)} onChange={() => toggleCat(c.id)} />
-            <span className="cat-dot" style={{ background: CATEGORY_COLORS[c.id] ?? FALLBACK_DOT_COLOR }} />
-            <span className="cat-label">{c.label}</span>
-            <span className="cat-count">{(meta.counts[c.id] ?? 0).toLocaleString()}</span>
-          </label>
-        ))}
-      </div>
-      <div className="sheet-links">
-        <a href="https://github.com/ZihuiTommyWang/sf-safety-map" target="_blank" rel="noreferrer">GitHub</a>
-        <span>Updated {meta.built.slice(0, 10)}</span>
-      </div>
-    </div>
-  )
-}
-
 export interface SearchTarget {
   lng: number
   lat: number
   label: string
   id: number
-}
-
-interface SearchSheetProps {
-  onResult: (t: SearchTarget) => void
-  onClose: () => void
 }
 
 interface Suggestion {
@@ -180,15 +35,40 @@ function normKey(title: string): string {
     .trim()
 }
 
-export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
+function SearchIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+      <circle cx="6.5" cy="6.5" r="4.75" stroke="currentColor" strokeWidth="1.5" />
+      <line x1="10.2" y1="10.2" x2="13.6" y2="13.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+type Panel = 'none' | 'crimes' | 'time'
+
+interface SheetProps {
+  meta: Meta
+  catSel: Set<string>
+  setCatSel: (s: Set<string>) => void
+  dayRange: [number, number]
+  setDayRange: (r: [number, number]) => void
+  timeBadge: string
+  onResult: (t: SearchTarget) => void
+  /** Card content (spot report / tapped incidents); renders in the sheet body. */
+  children?: ReactNode
+  onCollapse: () => void
+}
+
+export function Sheet(p: SheetProps) {
+  const [panel, setPanel] = useState<Panel>('none')
   const [q, setQ] = useState('')
   const [sugs, setSugs] = useState<Suggestion[]>([])
   const [error, setError] = useState<string | null>(null)
   const [index, setIndex] = useState<AddressIndex | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
   const seqRef = useRef(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
-    inputRef.current?.focus()
     loadAddressIndex().then(setIndex).catch(() => {})
   }, [])
 
@@ -201,14 +81,12 @@ export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
     }
     const seq = ++seqRef.current
 
-    // Local results from the city's official address registry — instant.
     const local: Suggestion[] = index
       ? searchAddresses(index, query, 4).map((a) => ({ lng: a.lng, lat: a.lat, title: a.title, sub: a.sub }))
       : []
     setSugs(local)
     setError(null)
 
-    // Photon (OSM) in parallel for places and businesses.
     const t = window.setTimeout(async () => {
       try {
         const params = new URLSearchParams({
@@ -229,10 +107,10 @@ export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
           if (out.length >= 7) break
           const [lng, lat] = f.geometry.coordinates
           if (lng < SF_BBOX.minLng || lng > SF_BBOX.maxLng || lat < SF_BBOX.minLat || lat > SF_BBOX.maxLat) continue
-          const p = f.properties
-          const title = p.housenumber && p.street ? `${p.housenumber} ${p.street}` : p.name || p.street
+          const pr = f.properties
+          const title = pr.housenumber && pr.street ? `${pr.housenumber} ${pr.street}` : pr.name || pr.street
           if (!title) continue
-          const sub = [p.name && p.street && !p.housenumber ? p.street : null, p.district, p.city]
+          const sub = [pr.name && pr.street && !pr.housenumber ? pr.street : null, pr.district, pr.city]
             .filter((x): x is string => Boolean(x && x !== title))
             .join(' · ')
           const key = normKey(title)
@@ -252,41 +130,155 @@ export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
   }, [q, index])
 
   const pick = (s: Suggestion) => {
-    onResult({ lng: s.lng, lat: s.lat, label: s.sub ? `${s.title}, ${s.sub}` : s.title, id: Date.now() })
-    onClose()
+    setQ('')
+    setSugs([])
+    setPanel('none')
+    inputRef.current?.blur()
+    p.onResult({ lng: s.lng, lat: s.lat, label: s.sub ? `${s.title}, ${s.sub}` : s.title, id: Date.now() })
+  }
+
+  const togglePanel = (next: Panel) => setPanel(panel === next ? 'none' : next)
+  const searching = q.trim().length >= 3
+  const collapse = () => {
+    setQ('')
+    setSugs([])
+    setPanel('none')
+    inputRef.current?.blur()
+    p.onCollapse()
   }
 
   return (
-    <div className="sheet">
-      <div className="search-row">
+    <div className="sheet-shell">
+      <button className="sheet-grab" onClick={collapse} aria-label="Collapse" />
+      <div className="sheet-search">
+        <SearchIcon />
         <input
           ref={inputRef}
           value={q}
-          placeholder="Address or place in SF…"
+          placeholder="Search any SF address or place…"
           onChange={(e) => setQ(e.target.value)}
+          onFocus={() => setPanel('none')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && sugs.length) pick(sugs[0])
-            if (e.key === 'Escape') onClose()
+            if (e.key === 'Escape') {
+              setQ('')
+              inputRef.current?.blur()
+            }
           }}
         />
+        {q && (
+          <button className="sheet-clear" onClick={() => setQ('')} aria-label="Clear search">
+            ×
+          </button>
+        )}
       </div>
-      {sugs.length > 0 && (
-        <ul className="sug-list">
-          {sugs.map((s, i) => (
-            <li key={i}>
-              <button onClick={() => pick(s)}>
-                <span className="sug-title">{s.title}</span>
-                {s.sub && <span className="sug-sub">{s.sub}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
+      <div className="sheet-filters">
+        <button className={panel === 'crimes' ? 'on' : ''} onClick={() => togglePanel('crimes')}>
+          crimes · <b>{p.catSel.size === p.meta.categories.length ? 'all' : `${p.catSel.size}/${p.meta.categories.length}`}</b>
+        </button>
+        <button className={panel === 'time' ? 'on' : ''} onClick={() => togglePanel('time')}>
+          time · <b>{p.timeBadge}</b>
+        </button>
+      </div>
+
+      {searching && (
+        <div className="sheet-body">
+          {sugs.length > 0 && (
+            <ul className="sug-list">
+              {sugs.map((s, i) => (
+                <li key={i}>
+                  <button onClick={() => pick(s)}>
+                    <span className="sug-title">{s.title}</span>
+                    {s.sub && <span className="sug-sub">{s.sub}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {error && <p className="sheet-note error">{error}</p>}
+        </div>
       )}
-      {error && <p className="sheet-note error">{error}</p>}
-      <p className="sheet-note">
-        Every official SF address (via <a href="https://data.sf.gov/d/3mea-di5p" target="_blank" rel="noreferrer">DataSF</a>) ·
-        places by <a href="https://photon.komoot.io" target="_blank" rel="noreferrer">Photon</a> / OpenStreetMap.
-      </p>
+
+      {!searching && panel === 'none' && p.children && <div className="sheet-body">{p.children}</div>}
+
+      {!searching && panel === 'crimes' && (
+        <div className="sheet-body">
+          <div className="panel-head">
+            <span>Crime types</span>
+            <span className="panel-actions">
+              <button className="mini-chip" onClick={() => p.setCatSel(new Set(p.meta.categories.map((c) => c.id)))}>
+                All
+              </button>
+              <button className="mini-chip" onClick={() => p.setCatSel(new Set())}>
+                None
+              </button>
+            </span>
+          </div>
+          <div className="cat-list">
+            {p.meta.categories.map((c) => (
+              <label key={c.id} className="cat-row">
+                <input
+                  type="checkbox"
+                  checked={p.catSel.has(c.id)}
+                  onChange={() => {
+                    const next = new Set(p.catSel)
+                    if (next.has(c.id)) next.delete(c.id)
+                    else next.add(c.id)
+                    p.setCatSel(next)
+                  }}
+                />
+                <span className="cat-dot" style={{ background: CATEGORY_COLORS[c.id] ?? FALLBACK_DOT_COLOR }} />
+                <span className="cat-label">{c.label}</span>
+                <span className="cat-count">{(p.meta.counts[c.id] ?? 0).toLocaleString()}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!searching && panel === 'time' && (
+        <div className="sheet-body">
+          <div className="panel-head">
+            <span>Time window</span>
+            <span className="panel-actions">
+              {([
+                ['30 days', 29],
+                ['6 months', 182],
+                ['Year', p.meta.maxDay - p.meta.minDay],
+              ] as const).map(([label, span]) => {
+                const from = Math.max(p.meta.minDay, p.meta.maxDay - span)
+                const active = p.dayRange[0] === from && p.dayRange[1] === p.meta.maxDay
+                return (
+                  <button
+                    key={label}
+                    className={`mini-chip ${active ? 'on' : ''}`}
+                    onClick={() => p.setDayRange([from, p.meta.maxDay])}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </span>
+          </div>
+          <div className="date-row">
+            <input
+              type="date"
+              value={dayToISO(p.dayRange[0])}
+              min={dayToISO(p.meta.minDay)}
+              max={dayToISO(p.dayRange[1])}
+              onChange={(e) => e.target.value && p.setDayRange([isoToDay(e.target.value), p.dayRange[1]])}
+            />
+            <span>→</span>
+            <input
+              type="date"
+              value={dayToISO(p.dayRange[1])}
+              min={dayToISO(p.dayRange[0])}
+              max={dayToISO(p.meta.maxDay)}
+              onChange={(e) => e.target.value && p.setDayRange([p.dayRange[0], isoToDay(e.target.value)])}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
