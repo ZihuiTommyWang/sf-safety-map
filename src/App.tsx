@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MapView from './components/MapView'
-import { Dock, FilterSheet, SearchSheet } from './components/GlassUI'
+import { Dock, FilterSheet, TimeSheet, SearchSheet } from './components/GlassUI'
 import type { SheetKind, SearchTarget } from './components/GlassUI'
 import MethodologyModal from './components/MethodologyModal'
 import type { DataBundle, FilterState } from './data'
@@ -122,6 +122,23 @@ export default function App() {
     [bundle, filter],
   )
 
+  const timeLabel = useMemo(() => {
+    if (!bundle) return 'Year'
+    const { minDay, maxDay } = bundle.meta
+    if (dayRange[1] === maxDay) {
+      if (dayRange[0] <= minDay) return 'Year'
+      if (dayRange[0] === maxDay - 29) return '30 days'
+      if (dayRange[0] === maxDay - 182) return '6 months'
+    }
+    const fmt = (d: number) =>
+      new Date(Date.UTC(2018, 0, 1) + d * 86400000).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC',
+      })
+    return `${fmt(dayRange[0])} – ${fmt(dayRange[1])}`
+  }, [bundle, dayRange])
+
   const noticeTimer = useRef<number>(undefined)
   const showNotice = (msg: string) => {
     setNotice(msg)
@@ -237,6 +254,7 @@ export default function App() {
 
       <div className="count-capsule">
         <b>{shownCount.toLocaleString()}</b> incidents
+        {timeLabel !== 'Year' && <span className="capsule-dim"> · {timeLabel === '30 days' || timeLabel === '6 months' ? `last ${timeLabel}` : timeLabel}</span>}
       </div>
 
       {!hasPicked && (
@@ -254,10 +272,11 @@ export default function App() {
           meta={bundle.meta}
           catSel={catSel}
           setCatSel={setCatSel}
-          dayRange={dayRange}
-          setDayRange={setDayRange}
           onMethodology={() => setMethodologyOpen(true)}
         />
+      )}
+      {sheet === 'time' && (
+        <TimeSheet meta={bundle.meta} dayRange={dayRange} setDayRange={setDayRange} />
       )}
       {sheet === 'search' && (
         <SearchSheet onResult={openSpot} onClose={() => setSheet('none')} />
@@ -266,6 +285,7 @@ export default function App() {
       <Dock
         selectedCount={catSel.size}
         totalCount={bundle.meta.categories.length}
+        timeLabel={timeLabel}
         sheet={sheet}
         setSheet={setSheet}
         onNearMe={nearMe}

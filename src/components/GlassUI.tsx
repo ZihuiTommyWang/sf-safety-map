@@ -3,18 +3,19 @@ import type { Meta } from '../data'
 import { dayToISO, isoToDay } from '../data'
 import { CATEGORY_COLORS, FALLBACK_DOT_COLOR } from '../config'
 
-export type SheetKind = 'none' | 'filters' | 'search'
+export type SheetKind = 'none' | 'filters' | 'time' | 'search'
 
 interface DockProps {
   selectedCount: number
   totalCount: number
+  timeLabel: string
   sheet: SheetKind
   setSheet: (s: SheetKind) => void
   onNearMe: () => void
   locating: boolean
 }
 
-export function Dock({ selectedCount, totalCount, sheet, setSheet, onNearMe, locating }: DockProps) {
+export function Dock({ selectedCount, totalCount, timeLabel, sheet, setSheet, onNearMe, locating }: DockProps) {
   const toggle = (s: SheetKind) => setSheet(sheet === s ? 'none' : s)
   return (
     <div className="dock">
@@ -42,53 +43,29 @@ export function Dock({ selectedCount, totalCount, sheet, setSheet, onNearMe, loc
           {selectedCount === totalCount ? 'all' : `${selectedCount}/${totalCount}`}
         </span>
       </button>
+      <button
+        className={`dock-pill ${sheet === 'time' ? 'on' : ''}`}
+        onClick={() => toggle('time')}
+      >
+        {timeLabel}
+        <span className="dock-pill-caret">▾</span>
+      </button>
     </div>
   )
 }
 
-interface FilterSheetProps {
+interface TimeSheetProps {
   meta: Meta
-  catSel: Set<string>
-  setCatSel: (s: Set<string>) => void
   dayRange: [number, number]
   setDayRange: (r: [number, number]) => void
-  onMethodology: () => void
 }
 
-export function FilterSheet(p: FilterSheetProps) {
+export function TimeSheet(p: TimeSheetProps) {
   const { meta } = p
-  const toggleCat = (id: string) => {
-    const next = new Set(p.catSel)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    p.setCatSel(next)
-  }
   return (
     <div className="sheet">
       <div className="sheet-row sheet-head">
-        <span>Categories</span>
-        <span className="sheet-val">
-          <button
-            className="mini-chip"
-            onClick={() => p.setCatSel(new Set(meta.categories.map((c) => c.id)))}
-          >
-            All
-          </button>
-          <button className="mini-chip" onClick={() => p.setCatSel(new Set())}>None</button>
-        </span>
-      </div>
-      <div className="cat-list">
-        {meta.categories.map((c) => (
-          <label key={c.id} className="cat-row">
-            <input type="checkbox" checked={p.catSel.has(c.id)} onChange={() => toggleCat(c.id)} />
-            <span className="cat-dot" style={{ background: CATEGORY_COLORS[c.id] ?? FALLBACK_DOT_COLOR }} />
-            <span className="cat-label">{c.label}</span>
-            <span className="cat-count">{(meta.counts[c.id] ?? 0).toLocaleString()}</span>
-          </label>
-        ))}
-      </div>
-      <div className="sheet-row sheet-head" style={{ marginTop: 10 }}>
-        <span>Date range</span>
+        <span>Time window</span>
         <span className="sheet-val">
           {([
             ['30 days', 29],
@@ -125,6 +102,50 @@ export function FilterSheet(p: FilterSheetProps) {
           max={dayToISO(meta.maxDay)}
           onChange={(e) => e.target.value && p.setDayRange([p.dayRange[0], isoToDay(e.target.value)])}
         />
+      </div>
+      <p className="sheet-note">The map, counts, and report cards all follow this window.</p>
+    </div>
+  )
+}
+
+interface FilterSheetProps {
+  meta: Meta
+  catSel: Set<string>
+  setCatSel: (s: Set<string>) => void
+  onMethodology: () => void
+}
+
+export function FilterSheet(p: FilterSheetProps) {
+  const { meta } = p
+  const toggleCat = (id: string) => {
+    const next = new Set(p.catSel)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    p.setCatSel(next)
+  }
+  return (
+    <div className="sheet">
+      <div className="sheet-row sheet-head">
+        <span>Categories</span>
+        <span className="sheet-val">
+          <button
+            className="mini-chip"
+            onClick={() => p.setCatSel(new Set(meta.categories.map((c) => c.id)))}
+          >
+            All
+          </button>
+          <button className="mini-chip" onClick={() => p.setCatSel(new Set())}>None</button>
+        </span>
+      </div>
+      <div className="cat-list">
+        {meta.categories.map((c) => (
+          <label key={c.id} className="cat-row">
+            <input type="checkbox" checked={p.catSel.has(c.id)} onChange={() => toggleCat(c.id)} />
+            <span className="cat-dot" style={{ background: CATEGORY_COLORS[c.id] ?? FALLBACK_DOT_COLOR }} />
+            <span className="cat-label">{c.label}</span>
+            <span className="cat-count">{(meta.counts[c.id] ?? 0).toLocaleString()}</span>
+          </label>
+        ))}
       </div>
       <div className="sheet-links">
         <button className="link-btn" onClick={p.onMethodology}>Methodology & data</button>
