@@ -324,15 +324,16 @@ export default function App() {
                     className="cat-dot"
                     style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }}
                   />
-                  <span className="incident-desc">{it.desc}</span>
+                  <span className="incident-desc">{it.catLabel}</span>
+                  <span className="li-date">{it.rel}</span>
                   <span className="li-caret">▶</span>
                 </div>
                 {expandedIncident === i && (
                   <div className="li-detail">
-                    <span>Category</span>
-                    <b>{it.catLabel}</b>
+                    <span>Details</span>
+                    <b>{it.desc}</b>
                     <span>Date</span>
-                    <b>{it.longDate} ({it.rel})</b>
+                    <b>{it.longDate}</b>
                     <span>Time</span>
                     <b>{it.hour}</b>
                     <span>Outcome</span>
