@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Report Card Lab — SF Safety Map</title>
+<style>
+  :root { --glass: rgba(26,28,35,.92); --line: rgba(255,255,255,.12); --txt:#f2f3f5; --dim:#9aa0a6; --amber:#ffb84d; --good:#7ddf8a; --bad:#ef5350; }
+  html, body { margin:0; min-height:100%; background:#101216 radial-gradient(1200px 600px at 50% -100px, #1a2030, #101216); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+  h1 { text-align:center; font-size:15px; font-weight:600; color:var(--dim); margin:26px 0 4px; letter-spacing:.3px; }
+  .sub { text-align:center; font-size:12px; color:#6b7076; margin-bottom:22px; }
+  .row { display:flex; gap:22px; justify-content:center; align-items:flex-start; flex-wrap:wrap; padding:0 20px 40px; }
+  .card { width:330px; background:var(--glass); border:1px solid var(--line); border-radius:20px;
+    box-shadow:0 18px 50px rgba(0,0,0,.55); overflow:hidden; }
+  .lab { text-align:center; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--amber); margin:0 0 10px; }
+  .hd { display:flex; justify-content:space-between; align-items:center; padding:14px 16px 10px; }
+  .hd strong { font-size:14.5px; }
+  .hd .x { color:var(--dim); }
+  .hd .sub2 { font-size:11px; color:var(--dim); font-weight:400; display:block; margin-top:1px; }
+  .list { border-top:1px solid rgba(255,255,255,.07); }
+  .li { display:flex; gap:10px; padding:9px 16px; align-items:flex-start; border-top:1px solid rgba(255,255,255,.04); }
+  .dot { width:9px;height:9px;border-radius:50%;margin-top:4px;flex-shrink:0; }
+  .li .t { font-size:12.5px; line-height:1.3; }
+  .li .m { font-size:11px; color:var(--dim); margin-top:1px; }
+  .li .m b { color:#cdd1d5; font-weight:500; }
+  .spark { padding:4px 16px 2px; }
+  .spark svg { width:100%; height:46px; display:block; }
+  .spark .cap { font-size:10.5px; color:var(--dim); display:flex; justify-content:space-between; margin-top:2px; }
+  .spark .cap b { color:var(--amber); font-weight:600; }
+
+  /* A — verdict */
+  .verdict { padding:2px 16px 0; font-size:14.5px; line-height:1.45; }
+  .verdict b { color:var(--amber); }
+  .splits { display:flex; gap:10px; padding:12px 16px 6px; }
+  .tile { flex:1; background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:10px 12px; }
+  .tile b { display:block; font-size:21px; font-weight:750; letter-spacing:-.3px; }
+  .tile span { font-size:10.5px; color:var(--dim); }
+  .chips { display:flex; gap:6px; padding:8px 16px 12px; flex-wrap:wrap; }
+  .chip { font-size:11px; padding:4px 10px; border-radius:999px; border:1px solid var(--line); color:#cdd1d5; background:rgba(255,255,255,.04); }
+  .chip.down { color:var(--good); border-color:rgba(125,223,138,.4); }
+  .chip.share { color:var(--amber); border-color:rgba(255,184,77,.4); cursor:pointer; }
+
+  /* B — percentile hero */
+  .hero { text-align:center; padding:8px 16px 2px; }
+  .hero .big { font-size:46px; font-weight:800; letter-spacing:-1.5px; color:var(--amber); line-height:1; }
+  .hero .cap { font-size:12px; color:var(--dim); margin-top:4px; }
+  .bars { padding:12px 16px 4px; }
+  .bar { display:flex; align-items:center; gap:9px; font-size:11.5px; color:#cdd1d5; margin-bottom:7px; }
+  .bar .nm { width:118px; flex-shrink:0; }
+  .bar .tr { flex:1; height:7px; border-radius:4px; background:rgba(255,255,255,.07); overflow:hidden; }
+  .bar .tr i { display:block; height:100%; border-radius:4px; }
+  .bar .v { width:30px; text-align:right; color:var(--dim); font-size:10.5px; }
+  .statline { display:flex; justify-content:space-around; padding:10px 16px 4px; font-size:12px; color:var(--dim); }
+  .statline b { color:var(--txt); font-size:15px; display:block; text-align:center; }
+
+  /* C — compact */
+  .inline-stats { display:flex; gap:10px; padding:10px 16px 2px; }
+  .mini { flex:1; text-align:center; background:rgba(0,0,0,.28); border-radius:12px; padding:8px 6px; border:1px solid rgba(255,255,255,.06); }
+  .mini b { display:block; font-size:17px; font-weight:700; }
+  .mini span { font-size:9.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
+</style>
+</head>
+<body>
+<h1>Report card — three directions, live data for 515 Harrison St</h1>
+<div class="sub">A · Verdict-first &nbsp;&nbsp; B · Percentile hero &nbsp;&nbsp; C · Compact evolution</div>
+<div class="row" id="row"></div>
+
+<script>
+const CENTER = { lng: -122.39354, lat: 37.78583, label: '515 Harrison St', nh: 'Financial District/South Beach' }
+const R = 300
+const LAT0 = 37.768, LNG0 = -122.435
+const MX = 111320 * Math.cos(LAT0 * Math.PI / 180), MY = 110540
+const VIOLENT = new Set(['assault','homicide','robbery','sex-offenses','weapons'])
+const PROPERTY = new Set(['theft','car-break-in','vehicle-theft','burglary','vandalism','arson'])
+const CAT_COLORS = { 'assault':'#ef5350','homicide':'#b71c1c','robbery':'#ff7043','sex-offenses':'#c2185b','weapons':'#ec407a','drugs':'#7e57c2','street-disorder':'#26a69a','theft':'#ffca28','car-break-in':'#ffa726','vehicle-theft':'#ff8a65','burglary':'#ab47bc','vandalism':'#66bb6a','arson':'#d84315' }
+const fmtH = h => h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'
+
+async function main() {
+  const [inc, meta] = await Promise.all([
+    fetch('data/incidents.json').then(r=>r.json()),
+    fetch('data/meta.json').then(r=>r.json()),
+  ])
+  const cx=(CENTER.lng-LNG0)*MX, cy=(CENTER.lat-LAT0)*MY, r2=R*R
+  const XY=new Float64Array(inc.n*2)
+  for(let i=0;i<inc.n;i++){XY[2*i]=(inc.lng[i]-LNG0)*MX;XY[2*i+1]=(inc.lat[i]-LAT0)*MY}
+  const inR=i=>{const dx=XY[2*i]-cx,dy=XY[2*i+1]-cy;return dx*dx+dy*dy<=r2}
+
+  // local stats
+  const idx=[], catCount=new Map(), hours=new Array(24).fill(0)
+  let vLoc=0,pLoc=0,vCity=0,pCity=0, firstHalf=0, secondHalf=0
+  const midDay=(meta.minDay+meta.maxDay)/2
+  for(let i=0;i<inc.n;i++){
+    const id=meta.categories[inc.cat[i]].id
+    if(VIOLENT.has(id))vCity++; else if(PROPERTY.has(id))pCity++
+    if(!inR(i))continue
+    idx.push(i)
+    catCount.set(inc.cat[i],(catCount.get(inc.cat[i])||0)+1)
+    if(inc.hour[i]<24)hours[inc.hour[i]]++
+    if(VIOLENT.has(id))vLoc++; else if(PROPERTY.has(id))pLoc++
+    if(inc.day[i]<midDay)firstHalf++; else secondHalf++
+  }
+  idx.sort((a,b)=>inc.day[b]-inc.day[a])
+  const area=Math.PI*r2, LAND=121e6
+  const mult=(idx.length/area)/(inc.n/LAND)
+  const vMult=vCity? (vLoc/area)/(vCity/LAND):0
+  const pMult=pCity? (pLoc/area)/(pCity/LAND):0
+  const trend=firstHalf? (secondHalf-firstHalf)/firstHalf : 0
+
+  // percentile: this 300m count vs 400 random incident-centered samples
+  const samples=[]
+  for(let s=0;s<400;s++){
+    const j=Math.floor(Math.random()*inc.n)
+    const sx=XY[2*j], sy=XY[2*j+1]
+    let n=0
+    for(let i=0;i<inc.n;i++){const dx=XY[2*i]-sx,dy=XY[2*i+1]-sy; if(dx*dx+dy*dy<=r2)n++}
+    samples.push(n)
+  }
+  samples.sort((a,b)=>a-b)
+  let below=0; while(below<samples.length&&samples[below]<idx.length)below++
+  const pct=Math.round(below/samples.length*100)
+
+  let peak=0; for(let h=1;h<24;h++)if(hours[h]>hours[peak])peak=h
+  const top=[...catCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4)
+  const daysAgo=d=>{const n=meta.maxDay-d;return n===0?'today':n===1?'yesterday':n+' days ago'}
+  const distM=i=>{const dx=XY[2*i]-cx,dy=XY[2*i+1]-cy;return Math.round(Math.sqrt(dx*dx+dy*dy))}
+  const res=i=>inc.resolutions[inc.res[i]].includes('Open')?'unresolved':inc.resolutions[inc.res[i]]
+
+  const sparkSvg=()=>{const max=Math.max(...hours,1)
+    return `<svg viewBox="0 0 240 46" preserveAspectRatio="none"><polyline fill="rgba(255,184,77,.14)" stroke="#ffb84d" stroke-width="1.5" points="0,46 ${hours.map((v,h)=>`${h*240/23},${46-38*v/max}`).join(' ')} 240,46"/></svg>`}
+  const listHtml=n=>idx.slice(0,n).map(i=>{
+    const cid=meta.categories[inc.cat[i]].id
+    return `<div class="li"><span class="dot" style="background:${CAT_COLORS[cid]}"></span>
+      <div><div class="t">${inc.descs[inc.desc[i]]}</div>
+      <div class="m"><b>${daysAgo(inc.day[i])}</b> · ${distM(i)} m away · ${res(i)}</div></div></div>`}).join('')
+  const multClass=m=>m<1?'style="color:var(--good)"':m<2.5?'style="color:var(--amber)"':'style="color:var(--bad)"'
+  const header=`<div class="hd"><strong>${CENTER.label}<span class="sub2">${CENTER.nh} · within 300 m · last 12 months</span></strong><span class="x">✕</span></div>`
+  const trendChip=trend<=-0.05?`<span class="chip down">↘ trending down ${Math.round(-trend*100)}%</span>`
+    : trend>=0.05?`<span class="chip" style="color:var(--bad);border-color:rgba(239,83,80,.4)">↗ trending up ${Math.round(trend*100)}%</span>`
+    : `<span class="chip">→ steady</span>`
+
+  const row=document.getElementById('row')
+
+  // A — verdict-first
+  row.insertAdjacentHTML('beforeend', `<div class="card"><p class="lab" style="margin-top:14px">A · Verdict</p>${header}
+    <p class="verdict">Busier than typical SF — mostly <b>car break-ins and theft</b>; violent incidents are ${vMult<1.15?'near':'above'} the city average.</p>
+    <div class="splits">
+      <div class="tile"><b ${multClass(vMult)}>${vMult.toFixed(1)}×</b><span>violence vs city</span></div>
+      <div class="tile"><b ${multClass(pMult)}>${pMult.toFixed(1)}×</b><span>property vs city</span></div>
+    </div>
+    <div class="spark">${sparkSvg()}<div class="cap"><span>12 AM</span><span>worst around <b>${fmtH(peak)}</b></span><span>11 PM</span></div></div>
+    <div class="chips">${trendChip}<span class="chip">${idx.length} incidents</span><span class="chip share">⤴ share</span></div>
+    <div class="list">${listHtml(2)}</div></div>`)
+
+  // B — percentile hero
+  row.insertAdjacentHTML('beforeend', `<div class="card"><p class="lab" style="margin-top:14px">B · Percentile</p>${header}
+    <div class="hero"><div class="big">${pct}th</div><div class="cap">percentile — more incidents than ${pct}% of SF spots</div></div>
+    <div class="statline"><span><b>${idx.length}</b>incidents</span><span><b>${mult.toFixed(1)}×</b>city avg</span><span><b>${fmtH(peak)}</b>peak hour</span></div>
+    <div class="bars">${top.map(([c,k])=>{const cat=meta.categories[c]
+      return `<div class="bar"><span class="nm">${cat.label}</span><div class="tr"><i style="width:${Math.round(100*k/top[0][1])}%;background:${CAT_COLORS[cat.id]}"></i></div><span class="v">${k}</span></div>`}).join('')}</div>
+    <div class="chips">${trendChip}<span class="chip share">⤴ share</span></div>
+    <div class="list">${listHtml(1)}</div></div>`)
+
+  // C — compact evolution
+  row.insertAdjacentHTML('beforeend', `<div class="card"><p class="lab" style="margin-top:14px">C · Compact</p>${header}
+    <div class="inline-stats">
+      <div class="mini"><b>${idx.length}</b><span>incidents</span></div>
+      <div class="mini"><b ${multClass(vMult)}>${vMult.toFixed(1)}×</b><span>violence</span></div>
+      <div class="mini"><b ${multClass(pMult)}>${pMult.toFixed(1)}×</b><span>property</span></div>
+    </div>
+    <div class="spark">${sparkSvg()}<div class="cap"><span>by hour</span><span>peak <b>${fmtH(peak)}</b></span></div></div>
+    <div class="list">${listHtml(3)}</div></div>`)
+}
+main()
+</script>
+</body>
+</html>
