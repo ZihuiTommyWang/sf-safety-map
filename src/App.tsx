@@ -59,6 +59,7 @@ export default function App() {
   const [methodologyOpen, setMethodologyOpen] = useState(false)
   const [picked, setPicked] = useState<PickedIncident[] | null>(null)
   const [tierVersion, setTierVersion] = useState(0)
+  const [contentVersion, setContentVersion] = useState(0)
 
   useEffect(() => {
     loadData()
@@ -145,6 +146,7 @@ export default function App() {
     setPicked(null)
     setSearchTarget(target)
     setSpotOpen(true)
+    setContentVersion((v) => v + 1)
   }
 
   const closeContent = () => {
@@ -206,6 +208,7 @@ export default function App() {
     }
     items.sort((a, b) => b.day - a.day)
     setPicked(items)
+    setContentVersion((v) => v + 1)
   }
 
   if (error) {
@@ -365,6 +368,7 @@ export default function App() {
           timeLabel === 'Year' ? 'Year' : timeLabel === '30 days' ? '30 Days' : timeLabel === '6 months' ? '6 Months' : 'Custom'
         }
         onResult={openSpot}
+        contentVersion={contentVersion}
       >
         {sheetContent}
       </Sheet>

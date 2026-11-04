@@ -56,6 +56,8 @@ interface SheetProps {
   onResult: (t: SearchTarget) => void
   /** Card content (spot report / tapped incidents); renders in the sheet body. */
   children?: ReactNode
+  /** Bumped whenever new content arrives, so the sheet auto-expands to show it. */
+  contentVersion: number
 }
 
 export function Sheet(p: SheetProps) {
@@ -72,6 +74,16 @@ export function Sheet(p: SheetProps) {
   useEffect(() => {
     loadAddressIndex().then(setIndex).catch(() => {})
   }, [])
+
+  // New card content (dot tap, search result): surface it immediately.
+  useEffect(() => {
+    if (p.contentVersion === 0) return
+    setMinimized(false)
+    setPanel('none')
+    setQ('')
+    setSugs([])
+    inputRef.current?.blur()
+  }, [p.contentVersion])
 
   useEffect(() => {
     const query = q.trim()
