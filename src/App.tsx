@@ -351,7 +351,7 @@ export default function App() {
           </button>
         </div>
         <ul>
-          {picked.slice(0, 50).map((it, i) => (
+          {picked.slice(0, 5).map((it, i) => (
             <li
               key={i}
               className={expandedIncident === i ? 'open' : ''}
@@ -378,7 +378,7 @@ export default function App() {
             </li>
           ))}
         </ul>
-        {picked.length > 50 && <div className="incident-more">+ {picked.length - 50} more</div>}
+        {picked.length > 5 && <div className="incident-more">+ {picked.length - 5} more</div>}
       </div>
     ) : null
 

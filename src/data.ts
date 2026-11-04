@@ -173,7 +173,7 @@ export function spotStats(
     count: local.length,
     mult: typical > 0 ? local.length / typical : 0,
     typical: Math.round(typical),
-    recent: local.slice(0, 10),
+    recent: local.slice(0, 5),
   }
 }
 
