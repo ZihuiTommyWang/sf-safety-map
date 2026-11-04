@@ -167,6 +167,67 @@ interface Suggestion {
 
 const SF_BBOX = { minLng: -122.55, maxLng: -122.33, minLat: 37.68, maxLat: 37.84 }
 
+/** Dedupe key tolerant of "St" vs "Street" etc. between geocoders. */
+function normKey(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/\bstreet\b/g, 'st')
+    .replace(/\bavenue\b/g, 'ave')
+    .replace(/\bboulevard\b/g, 'blvd')
+    .replace(/\bdrive\b/g, 'dr')
+    .replace(/\broad\b/g, 'rd')
+    .replace(/[^\w\s]/g, '')
+    .trim()
+}
+
+let censusSeq = 0
+/**
+ * US Census geocoder: interpolates any valid US street address, covering the
+ * many SF house numbers OSM lacks. No CORS on this API, so JSONP it is.
+ */
+function censusLookup(query: string, timeoutMs = 4000): Promise<Suggestion | null> {
+  return new Promise((resolve) => {
+    const cb = `__censusCb${++censusSeq}`
+    const w = window as unknown as Record<string, unknown>
+    const script = document.createElement('script')
+    const done = (value: Suggestion | null) => {
+      delete w[cb]
+      script.remove()
+      resolve(value)
+    }
+    const timer = window.setTimeout(() => done(null), timeoutMs)
+    w[cb] = (data: {
+      result?: { addressMatches?: { matchedAddress: string; coordinates: { x: number; y: number } }[] }
+    }) => {
+      window.clearTimeout(timer)
+      const m = data.result?.addressMatches?.[0]
+      if (!m) return done(null)
+      const { x: lng, y: lat } = m.coordinates
+      if (lng < SF_BBOX.minLng || lng > SF_BBOX.maxLng || lat < SF_BBOX.minLat || lat > SF_BBOX.maxLat) {
+        return done(null)
+      }
+      // "514 HARRISON ST, SAN FRANCISCO, CA, 94105" → "514 Harrison St"
+      const title = m.matchedAddress
+        .split(',')[0]
+        .toLowerCase()
+        .replace(/\b\w/g, (ch) => ch.toUpperCase())
+      done({ lng, lat, title, sub: 'San Francisco' })
+    }
+    const params = new URLSearchParams({
+      address: `${query}, San Francisco, CA`,
+      benchmark: 'Public_AR_Current',
+      format: 'jsonp',
+      callback: cb,
+    })
+    script.src = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?${params}`
+    script.onerror = () => {
+      window.clearTimeout(timer)
+      done(null)
+    }
+    document.head.appendChild(script)
+  })
+}
+
 export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
   const [q, setQ] = useState('')
   const [sugs, setSugs] = useState<Suggestion[]>([])
@@ -194,13 +255,23 @@ export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
           lon: '-122.4194',
           bbox: `${SF_BBOX.minLng},${SF_BBOX.minLat},${SF_BBOX.maxLng},${SF_BBOX.maxLat}`,
         })
-        const res = await fetch(`https://photon.komoot.io/api/?${params}`)
-        const data = (await res.json()) as {
+        // Looks like "514 harrison…"? Ask the Census geocoder too — OSM is
+        // missing many SF house numbers.
+        const addressLike = /^\d+\s+\S/.test(query)
+        const [photonRes, census] = await Promise.all([
+          fetch(`https://photon.komoot.io/api/?${params}`),
+          addressLike ? censusLookup(query) : Promise.resolve(null),
+        ])
+        const data = (await photonRes.json()) as {
           features: { geometry: { coordinates: [number, number] }; properties: Record<string, string> }[]
         }
         if (seq !== seqRef.current) return
         const seen = new Set<string>()
         const out: Suggestion[] = []
+        if (census) {
+          seen.add(normKey(census.title))
+          out.push(census)
+        }
         for (const f of data.features ?? []) {
           const [lng, lat] = f.geometry.coordinates
           if (lng < SF_BBOX.minLng || lng > SF_BBOX.maxLng || lat < SF_BBOX.minLat || lat > SF_BBOX.maxLat) continue
@@ -210,7 +281,7 @@ export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
           const sub = [p.name && p.street && !p.housenumber ? p.street : null, p.district, p.city]
             .filter((x): x is string => Boolean(x && x !== title))
             .join(' · ')
-          const key = `${title}|${sub}`
+          const key = normKey(title)
           if (seen.has(key)) continue
           seen.add(key)
           out.push({ lng, lat, title, sub })
@@ -256,7 +327,10 @@ export function SearchSheet({ onResult, onClose }: SearchSheetProps) {
         </ul>
       )}
       {error && <p className="sheet-note error">{error}</p>}
-      <p className="sheet-note">Search by <a href="https://photon.komoot.io" target="_blank" rel="noreferrer">Photon</a> / OpenStreetMap.</p>
+      <p className="sheet-note">
+        Search by <a href="https://photon.komoot.io" target="_blank" rel="noreferrer">Photon</a> /
+        OpenStreetMap · street addresses by the US Census geocoder.
+      </p>
     </div>
   )
 }
