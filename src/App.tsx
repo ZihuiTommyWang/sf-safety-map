@@ -273,7 +273,12 @@ export default function App() {
       {spotOpen && searchTarget && spot && (
         <div className="incident-card spot-card">
           <div className="incident-card-header">
-            <strong>{searchTarget.label.split(',').slice(0, 2).join(', ')}</strong>
+            <strong>
+              {searchTarget.label.split(',').slice(0, 2).join(', ')}
+              <span className="card-sub">
+                within 300 m · {timeLabel === 'Year' ? 'last 12 months' : timeLabel.toLowerCase()}
+              </span>
+            </strong>
             <button
               className="close-btn"
               onClick={() => {
@@ -285,7 +290,6 @@ export default function App() {
               ✕
             </button>
           </div>
-          <div className="card-sub">within 300 m · {timeLabel === 'Year' ? 'last 12 months' : timeLabel.toLowerCase()}</div>
           <div className="cmp">
             <div className="cmp-row">
               <span className="cmp-name">This spot</span>
@@ -320,12 +324,7 @@ export default function App() {
                     className="cat-dot"
                     style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }}
                   />
-                  <div>
-                    <div className="incident-desc">{it.desc}</div>
-                    <div className="incident-meta">
-                      <b>{it.rel}</b> · {it.dist} m away
-                    </div>
-                  </div>
+                  <span className="incident-desc">{it.desc}</span>
                   <span className="li-caret">▶</span>
                 </div>
                 {expandedIncident === i && (
@@ -333,7 +332,7 @@ export default function App() {
                     <span>Category</span>
                     <b>{it.catLabel}</b>
                     <span>Date</span>
-                    <b>{it.longDate}</b>
+                    <b>{it.longDate} ({it.rel})</b>
                     <span>Time</span>
                     <b>{it.hour}</b>
                     <span>Outcome</span>
