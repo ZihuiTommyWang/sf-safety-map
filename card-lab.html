@@ -62,8 +62,8 @@
 </style>
 </head>
 <body>
-<h1>Report card — three directions, live data for 515 Harrison St</h1>
-<div class="sub">A · Verdict-first &nbsp;&nbsp; B · Percentile hero &nbsp;&nbsp; C · Compact evolution</div>
+<h1>Report card — four directions, live data for 515 Harrison St (no hour-of-day anywhere)</h1>
+<div class="sub">A · Verdict-first &nbsp;&nbsp; B · Percentile hero &nbsp;&nbsp; C · Compact tiles &nbsp;&nbsp; D · Minimal delta</div>
 <div class="row" id="row"></div>
 
 <script>
@@ -148,28 +148,40 @@ async function main() {
       <div class="tile"><b ${multClass(vMult)}>${vMult.toFixed(1)}×</b><span>violence vs city</span></div>
       <div class="tile"><b ${multClass(pMult)}>${pMult.toFixed(1)}×</b><span>property vs city</span></div>
     </div>
-    <div class="spark">${sparkSvg()}<div class="cap"><span>12 AM</span><span>worst around <b>${fmtH(peak)}</b></span><span>11 PM</span></div></div>
     <div class="chips">${trendChip}<span class="chip">${idx.length} incidents</span><span class="chip share">⤴ share</span></div>
-    <div class="list">${listHtml(2)}</div></div>`)
+    <div class="list">${listHtml(3)}</div></div>`)
 
   // B — percentile hero
   row.insertAdjacentHTML('beforeend', `<div class="card"><p class="lab" style="margin-top:14px">B · Percentile</p>${header}
     <div class="hero"><div class="big">${pct}th</div><div class="cap">percentile — more incidents than ${pct}% of SF spots</div></div>
-    <div class="statline"><span><b>${idx.length}</b>incidents</span><span><b>${mult.toFixed(1)}×</b>city avg</span><span><b>${fmtH(peak)}</b>peak hour</span></div>
+    <div class="statline"><span><b>${idx.length}</b>incidents</span><span><b>${vMult.toFixed(1)}×</b>violence</span><span><b>${pMult.toFixed(1)}×</b>property</span></div>
     <div class="bars">${top.map(([c,k])=>{const cat=meta.categories[c]
       return `<div class="bar"><span class="nm">${cat.label}</span><div class="tr"><i style="width:${Math.round(100*k/top[0][1])}%;background:${CAT_COLORS[cat.id]}"></i></div><span class="v">${k}</span></div>`}).join('')}</div>
     <div class="chips">${trendChip}<span class="chip share">⤴ share</span></div>
     <div class="list">${listHtml(1)}</div></div>`)
 
-  // C — compact evolution
+  // C — compact tiles
   row.insertAdjacentHTML('beforeend', `<div class="card"><p class="lab" style="margin-top:14px">C · Compact</p>${header}
     <div class="inline-stats">
       <div class="mini"><b>${idx.length}</b><span>incidents</span></div>
       <div class="mini"><b ${multClass(vMult)}>${vMult.toFixed(1)}×</b><span>violence</span></div>
       <div class="mini"><b ${multClass(pMult)}>${pMult.toFixed(1)}×</b><span>property</span></div>
     </div>
-    <div class="spark">${sparkSvg()}<div class="cap"><span>by hour</span><span>peak <b>${fmtH(peak)}</b></span></div></div>
-    <div class="list">${listHtml(3)}</div></div>`)
+    <div class="chips">${trendChip}<span class="chip share">⤴ share</span></div>
+    <div class="list">${listHtml(4)}</div></div>`)
+
+  // D — minimal delta from the current card (split multipliers only)
+  row.insertAdjacentHTML('beforeend', `<div class="card"><p class="lab" style="margin-top:14px">D · Minimal</p>${header}
+    <div class="splits">
+      <div class="tile"><b>${idx.length}</b><span>incidents · 300 m</span></div>
+      <div class="tile"><b ${multClass(vMult)}>${vMult.toFixed(1)}×</b><span>violence vs city</span></div>
+      <div class="tile"><b ${multClass(pMult)}>${pMult.toFixed(1)}×</b><span>property vs city</span></div>
+    </div>
+    <div class="spot-top" style="padding:8px 16px 10px;font-size:11.5px;color:#cdd1d5;display:flex;gap:14px;flex-wrap:wrap">
+      ${top.slice(0,3).map(([c,k])=>{const cat=meta.categories[c]
+        return `<span><i class="dot" style="display:inline-block;margin-right:5px;background:${CAT_COLORS[cat.id]}"></i>${cat.label} · ${k}</span>`}).join('')}
+    </div>
+    <div class="list">${listHtml(4)}</div></div>`)
 }
 main()
 </script>
