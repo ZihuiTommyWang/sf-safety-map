@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MapView from './components/MapView'
-import { Dock, TimeSheet, FilterSheet, SearchSheet } from './components/GlassUI'
+import { Dock, FilterSheet, SearchSheet } from './components/GlassUI'
 import type { SheetKind, SearchTarget } from './components/GlassUI'
 import MethodologyModal from './components/MethodologyModal'
 import type { DataBundle, FilterState } from './data'
@@ -20,7 +20,7 @@ interface PickedIncident {
 function parseHash(bundle: DataBundle) {
   const params = new URLSearchParams(window.location.hash.slice(1))
   const validIds = new Set(bundle.meta.categories.map((c) => c.id))
-  const out: { cats?: Set<string>; day?: [number, number]; hour?: [number, number] } = {}
+  const out: { cats?: Set<string>; day?: [number, number] } = {}
   const c = params.get('c')
   if (c) {
     const ids = c.split(',').filter((id) => validIds.has(id))
@@ -33,11 +33,6 @@ function parseHash(bundle: DataBundle) {
     const d1 = isoToDay(to)
     if (Number.isFinite(d0) && Number.isFinite(d1) && d0 <= d1) out.day = [d0, d1]
   }
-  const h = params.get('h')
-  if (h) {
-    const [h0, h1] = h.split('-').map(Number)
-    if (h0 >= 0 && h1 <= 23 && h0 <= h1) out.hour = [h0, h1]
-  }
   return out
 }
 
@@ -47,10 +42,6 @@ export default function App() {
 
   const [catSel, setCatSel] = useState<Set<string>>(new Set())
   const [dayRange, setDayRange] = useState<[number, number]>([0, 0])
-  const [hourRange, setHourRange] = useState<[number, number]>([0, 23])
-  const [scrubActive, setScrubActive] = useState(false)
-  const [scrubHour, setScrubHour] = useState(20)
-  const [scrubPlaying, setScrubPlaying] = useState(false)
   const [sheet, setSheet] = useState<SheetKind>('none')
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null)
   const [methodologyOpen, setMethodologyOpen] = useState(false)
@@ -70,7 +61,6 @@ export default function App() {
         applyTiers(b, catIdx, days)
         setCatSel(cats)
         setDayRange(days)
-        if (fromHash.hour) setHourRange(fromHash.hour)
         setBundle(b)
       })
       .catch((e) => setError(String(e)))
@@ -86,13 +76,11 @@ export default function App() {
       params.set('c', [...catSel].join(','))
       params.set('from', dayToISO(dayRange[0]))
       params.set('to', dayToISO(dayRange[1]))
-      params.set('h', `${hourRange[0]}-${hourRange[1]}`)
       history.replaceState(null, '', `#${params}`)
     }, 300)
-  }, [bundle, catSel, dayRange, hourRange])
+  }, [bundle, catSel, dayRange])
 
-  // Exposure tiers follow the category/date filters (hour is deliberately
-  // excluded so the scrubber never forces a 50k-point source update).
+  // Exposure tiers follow the category/date filters (debounced).
   const tierTimer = useRef<number>(undefined)
   const skipFirstTiers = useRef(true)
   useEffect(() => {
@@ -112,13 +100,6 @@ export default function App() {
     }, 250)
   }, [bundle, catSel, dayRange])
 
-  // Hour animation loop.
-  useEffect(() => {
-    if (!scrubPlaying) return
-    const t = window.setInterval(() => setScrubHour((h) => (h + 1) % 24), 650)
-    return () => window.clearInterval(t)
-  }, [scrubPlaying])
-
   const catIdToIndex = useMemo(() => {
     const m = new Map<string, number>()
     bundle?.meta.categories.forEach((c, i) => m.set(c.id, i))
@@ -129,10 +110,8 @@ export default function App() {
     () => ({
       cats: new Set([...catSel].map((id) => catIdToIndex.get(id)!).filter((i) => i !== undefined)),
       dayRange,
-      hourRange,
-      scrubHour: scrubActive ? scrubHour : -1,
     }),
-    [catSel, catIdToIndex, dayRange, hourRange, scrubActive, scrubHour],
+    [catSel, catIdToIndex, dayRange],
   )
 
   const shownCount = useMemo(
@@ -209,7 +188,6 @@ export default function App() {
 
       <div className="count-capsule">
         <b>{shownCount.toLocaleString()}</b> incidents
-        {scrubActive && <span className="capsule-hour"> · {formatHour(scrubHour)}</span>}
       </div>
 
       {!hasPicked && (
@@ -222,18 +200,6 @@ export default function App() {
         <span>Intense</span>
       </div>
 
-      {sheet === 'time' && (
-        <TimeSheet
-          hourRange={hourRange}
-          setHourRange={setHourRange}
-          scrubActive={scrubActive}
-          scrubHour={scrubHour}
-          scrubPlaying={scrubPlaying}
-          setScrubActive={setScrubActive}
-          setScrubHour={setScrubHour}
-          setScrubPlaying={setScrubPlaying}
-        />
-      )}
       {sheet === 'filters' && (
         <FilterSheet
           meta={bundle.meta}

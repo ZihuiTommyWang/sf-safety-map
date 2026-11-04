@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Meta } from '../data'
-import { dayToISO, isoToDay, formatHour } from '../data'
+import { dayToISO, isoToDay } from '../data'
 import { CATEGORY_COLORS, FALLBACK_DOT_COLOR } from '../config'
 
-export type SheetKind = 'none' | 'time' | 'filters' | 'search'
+export type SheetKind = 'none' | 'filters' | 'search'
 
 /** Presets shown as quick segments in the dock; the rest live in the filter sheet. */
 const DOCK_PRESETS = ['walking', 'parking', 'living'] as const
@@ -42,90 +42,12 @@ export function Dock({ meta, activePreset, applyPreset, sheet, setSheet }: DockP
         </button>
       </div>
       <button
-        className={`dock-round ${sheet === 'time' ? 'on' : ''}`}
-        onClick={() => toggle('time')}
-        aria-label="Time of day"
-      >
-        🕗
-      </button>
-      <button
         className={`dock-round ${sheet === 'filters' ? 'on' : ''}`}
         onClick={() => toggle('filters')}
         aria-label="Filters & info"
       >
         ⚙︎
       </button>
-    </div>
-  )
-}
-
-interface TimeSheetProps {
-  hourRange: [number, number]
-  setHourRange: (r: [number, number]) => void
-  scrubActive: boolean
-  scrubHour: number
-  scrubPlaying: boolean
-  setScrubActive: (on: boolean) => void
-  setScrubHour: (h: number) => void
-  setScrubPlaying: (on: boolean) => void
-}
-
-export function TimeSheet(p: TimeSheetProps) {
-  return (
-    <div className="sheet">
-      <div className="sheet-row sheet-head">
-        <span>Time of day</span>
-        <span className="sheet-val">
-          {p.scrubActive ? formatHour(p.scrubHour) : `${formatHour(p.hourRange[0])} – ${formatHour(p.hourRange[1])}`}
-        </span>
-      </div>
-      {!p.scrubActive && (
-        <div className="hour-sliders">
-          <input
-            type="range" min={0} max={23} value={p.hourRange[0]}
-            onChange={(e) => {
-              const v = Number(e.target.value)
-              p.setHourRange([v, Math.max(v, p.hourRange[1])])
-            }}
-          />
-          <input
-            type="range" min={0} max={23} value={p.hourRange[1]}
-            onChange={(e) => {
-              const v = Number(e.target.value)
-              p.setHourRange([Math.min(v, p.hourRange[0]), v])
-            }}
-          />
-        </div>
-      )}
-      {p.scrubActive && (
-        <div className="scrub-row">
-          <button
-            className="dock-round small"
-            onClick={() => p.setScrubPlaying(!p.scrubPlaying)}
-            aria-label={p.scrubPlaying ? 'Pause' : 'Play'}
-          >
-            {p.scrubPlaying ? '❚❚' : '▶'}
-          </button>
-          <input
-            type="range" min={0} max={23} value={p.scrubHour}
-            onChange={(e) => {
-              p.setScrubPlaying(false)
-              p.setScrubHour(Number(e.target.value))
-            }}
-          />
-        </div>
-      )}
-      <button
-        className="sheet-action"
-        onClick={() => {
-          p.setScrubPlaying(false)
-          p.setScrubActive(!p.scrubActive)
-          if (!p.scrubActive) p.setScrubPlaying(true)
-        }}
-      >
-        {p.scrubActive ? '✕ Stop hour animation' : '▶ Animate by hour'}
-      </button>
-      <p className="sheet-note">Reports without a recorded time are hidden while a time filter is active.</p>
     </div>
   )
 }

@@ -164,33 +164,15 @@ export function applyTiers(bundle: DataBundle, cats: Set<number>, dayRange: [num
 export interface FilterState {
   cats: Set<number>
   dayRange: [number, number]
-  hourRange: [number, number]
-  /** When >= 0, the scrubber overrides hourRange with a single hour. */
-  scrubHour: number
-}
-
-/**
- * Reports with an unrecorded time (hour = HOUR_UNKNOWN = 24) are included only
- * when no time filtering is active: the full 12 AM–11 PM range with the
- * scrubber off. Any narrower view excludes them rather than lying about when
- * they happened.
- */
-function isFullHourRange(f: FilterState): boolean {
-  return f.scrubHour < 0 && f.hourRange[0] === 0 && f.hourRange[1] === 23
 }
 
 export function countFiltered(inc: Incidents, f: FilterState): number {
-  const { cat, day, hour } = inc
+  const { cat, day } = inc
   const [d0, d1] = f.dayRange
-  const [h0, h1] = f.hourRange
-  const allHours = isFullHourRange(f)
   let n = 0
   for (let i = 0; i < inc.n; i++) {
     if (!f.cats.has(cat[i])) continue
     if (day[i] < d0 || day[i] > d1) continue
-    if (!allHours) {
-      if (f.scrubHour >= 0 ? hour[i] !== f.scrubHour : hour[i] < h0 || hour[i] > h1) continue
-    }
     n++
   }
   return n
@@ -202,16 +184,10 @@ export function toMapFilter(f: FilterState): unknown[] {
   const catExpr = catList.length
     ? ['match', ['get', 'c'], catList, true, false]
     : ['boolean', false]
-  const hourExpr = isFullHourRange(f)
-    ? true
-    : f.scrubHour >= 0
-      ? ['==', ['get', 'h'], f.scrubHour]
-      : ['all', ['>=', ['get', 'h'], f.hourRange[0]], ['<=', ['get', 'h'], f.hourRange[1]]]
   return [
     'all',
     catExpr,
     ['>=', ['get', 'd'], f.dayRange[0]],
     ['<=', ['get', 'd'], f.dayRange[1]],
-    hourExpr,
   ]
 }

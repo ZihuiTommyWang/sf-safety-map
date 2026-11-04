@@ -44,8 +44,8 @@ export default function MethodologyModal({ built, total, onClose }: Props) {
           </li>
           <li>
             <strong>Some times are unknown.</strong> Several thousand reports have no recorded
-            time (SFPD logs them as exact midnight). They appear on the map, but are excluded
-            whenever you filter or animate by time of day rather than skewing the midnight hour.
+            time (SFPD logs them as exact midnight); those show their time as “unknown” in the
+            incident details.
           </li>
           <li>
             <strong>Categories are simplified.</strong> SFPD's ~50 categories are grouped into ~19
