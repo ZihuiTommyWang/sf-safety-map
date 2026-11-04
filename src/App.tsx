@@ -4,7 +4,7 @@ import { Dock, FilterSheet, SearchSheet } from './components/GlassUI'
 import type { SheetKind, SearchTarget } from './components/GlassUI'
 import MethodologyModal from './components/MethodologyModal'
 import type { DataBundle, FilterState } from './data'
-import { loadData, countFiltered, applyTiers, dayToISO, isoToDay, formatHour } from './data'
+import { loadData, countFiltered, applyTiers, spotStats, dayToISO, isoToDay, formatHour } from './data'
 import { CATEGORY_COLORS, FALLBACK_DOT_COLOR } from './config'
 
 interface PickedIncident {
@@ -44,6 +44,9 @@ export default function App() {
   const [dayRange, setDayRange] = useState<[number, number]>([0, 0])
   const [sheet, setSheet] = useState<SheetKind>('none')
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null)
+  const [spotOpen, setSpotOpen] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const [methodologyOpen, setMethodologyOpen] = useState(false)
   const [picked, setPicked] = useState<PickedIncident[] | null>(null)
   const [hasPicked, setHasPicked] = useState(false)
@@ -119,7 +122,69 @@ export default function App() {
     [bundle, filter],
   )
 
+  const noticeTimer = useRef<number>(undefined)
+  const showNotice = (msg: string) => {
+    setNotice(msg)
+    window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 4500)
+  }
+
+  const openSpot = (target: SearchTarget) => {
+    setPicked(null)
+    setSearchTarget(target)
+    setSpotOpen(true)
+    setHasPicked(true)
+  }
+
+  const nearMe = () => {
+    if (!navigator.geolocation) {
+      showNotice('Location is not available in this browser.')
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false)
+        const { longitude: lng, latitude: lat } = pos.coords
+        if (lng < -122.55 || lng > -122.33 || lat < 37.68 || lat > 37.84) {
+          showNotice("You're outside San Francisco — search a spot instead.")
+          return
+        }
+        openSpot({ lng, lat, label: 'Your location', id: Date.now() })
+      },
+      () => {
+        setLocating(false)
+        showNotice('Could not get your location — check location permissions.')
+      },
+      { enableHighAccuracy: true, timeout: 8000 },
+    )
+  }
+
+  // Live stats for the open spot; re-derives when filters change.
+  const spot = useMemo(
+    () => (bundle && searchTarget ? spotStats(bundle, filter, searchTarget.lng, searchTarget.lat) : null),
+    [bundle, filter, searchTarget],
+  )
+
+  const spotRecent: PickedIncident[] = useMemo(() => {
+    if (!bundle || !spot) return []
+    const { incidents, meta } = bundle
+    return spot.recent.map((i) => {
+      const cat = meta.categories[incidents.cat[i]]
+      return {
+        catId: cat.id,
+        catLabel: cat.label,
+        desc: incidents.descs[incidents.desc[i]],
+        date: dayToISO(incidents.day[i]),
+        hour: formatHour(incidents.hour[i]),
+        resolution: incidents.resolutions[incidents.res[i]],
+        day: incidents.day[i],
+      }
+    })
+  }, [bundle, spot])
+
   const onPick = (indices: number[]) => {
+    setSpotOpen(false)
     if (!bundle) return
     const { incidents, meta } = bundle
     const seen = new Set<number>()
@@ -195,7 +260,7 @@ export default function App() {
         />
       )}
       {sheet === 'search' && (
-        <SearchSheet onResult={setSearchTarget} onClose={() => setSheet('none')} />
+        <SearchSheet onResult={openSpot} onClose={() => setSheet('none')} />
       )}
 
       <Dock
@@ -203,7 +268,67 @@ export default function App() {
         totalCount={bundle.meta.categories.length}
         sheet={sheet}
         setSheet={setSheet}
+        onNearMe={nearMe}
+        locating={locating}
       />
+
+      {notice && <div className="notice">{notice}</div>}
+
+      {spotOpen && searchTarget && spot && (
+        <div className="incident-card spot-card">
+          <div className="incident-card-header">
+            <strong>{searchTarget.label.split(',').slice(0, 2).join(', ')}</strong>
+            <button
+              className="close-btn"
+              onClick={() => {
+                setSpotOpen(false)
+                setSearchTarget(null)
+              }}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="spot-stats">
+            <div>
+              <b>{spot.count.toLocaleString()}</b>
+              <span>incidents · 300 m</span>
+            </div>
+            <div>
+              <b className={spot.mult < 1 ? 'good' : spot.mult < 2.5 ? 'mid' : 'bad'}>
+                {spot.mult.toFixed(1)}×
+              </b>
+              <span>city average</span>
+            </div>
+          </div>
+          {spot.top.length > 0 && (
+            <div className="spot-top">
+              {spot.top.map((t) => (
+                <span key={t.id}>
+                  <i className="cat-dot" style={{ background: CATEGORY_COLORS[t.id] ?? FALLBACK_DOT_COLOR }} />
+                  {t.label} · {t.count}
+                </span>
+              ))}
+            </div>
+          )}
+          <ul>
+            {spotRecent.map((it, i) => (
+              <li key={i}>
+                <span
+                  className="cat-dot"
+                  style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }}
+                />
+                <div>
+                  <div className="incident-desc">{it.desc}</div>
+                  <div className="incident-meta">
+                    {it.catLabel} · {it.date} · {it.hour} · {it.resolution}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {picked && (
         <div className="incident-card">

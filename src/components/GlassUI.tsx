@@ -10,9 +10,11 @@ interface DockProps {
   totalCount: number
   sheet: SheetKind
   setSheet: (s: SheetKind) => void
+  onNearMe: () => void
+  locating: boolean
 }
 
-export function Dock({ selectedCount, totalCount, sheet, setSheet }: DockProps) {
+export function Dock({ selectedCount, totalCount, sheet, setSheet, onNearMe, locating }: DockProps) {
   const toggle = (s: SheetKind) => setSheet(sheet === s ? 'none' : s)
   return (
     <div className="dock">
@@ -22,6 +24,14 @@ export function Dock({ selectedCount, totalCount, sheet, setSheet }: DockProps) 
         aria-label="Search"
       >
         🔍
+      </button>
+      <button
+        className={`dock-round ${locating ? 'on' : ''}`}
+        onClick={onNearMe}
+        aria-label="Near me"
+        disabled={locating}
+      >
+        📍
       </button>
       <button
         className={`dock-pill ${sheet === 'filters' ? 'on' : ''}`}
@@ -79,6 +89,25 @@ export function FilterSheet(p: FilterSheetProps) {
       </div>
       <div className="sheet-row sheet-head" style={{ marginTop: 10 }}>
         <span>Date range</span>
+        <span className="sheet-val">
+          {([
+            ['30 days', 29],
+            ['6 months', 182],
+            ['Year', meta.maxDay - meta.minDay],
+          ] as const).map(([label, span]) => {
+            const from = Math.max(meta.minDay, meta.maxDay - span)
+            const active = p.dayRange[0] === from && p.dayRange[1] === meta.maxDay
+            return (
+              <button
+                key={label}
+                className={`mini-chip ${active ? 'on' : ''}`}
+                onClick={() => p.setDayRange([from, meta.maxDay])}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </span>
       </div>
       <div className="date-row">
         <input

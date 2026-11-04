@@ -106,8 +106,10 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !searchTarget) return
+    if (!map) return
     markerRef.current?.remove()
+    markerRef.current = null
+    if (!searchTarget) return
     markerRef.current = new maplibregl.Marker({ color: '#ffb84d' })
       .setLngLat([searchTarget.lng, searchTarget.lat])
       .addTo(map)

@@ -134,6 +134,49 @@ function buildHexIndex(inc: Incidents): { pointHex: Int32Array; hexCount: number
   return { pointHex, hexCount: ids.size }
 }
 
+export interface SpotStats {
+  count: number
+  /** Incident density here vs. the citywide average, under the same filters. */
+  mult: number
+  top: { id: string; label: string; count: number }[]
+  /** Indices of the most recent incidents in the radius, newest first. */
+  recent: number[]
+}
+
+const SF_LAND_M2 = 121e6 // ~121 km² of land
+
+export function spotStats(
+  bundle: DataBundle,
+  f: FilterState,
+  lng: number,
+  lat: number,
+  radiusM = 300,
+): SpotStats {
+  const inc = bundle.incidents
+  const r2 = radiusM * radiusM
+  const [d0, d1] = f.dayRange
+  const catCount = new Map<number, number>()
+  const idx: number[] = []
+  for (let i = 0; i < inc.n; i++) {
+    if (!f.cats.has(inc.cat[i])) continue
+    if (inc.day[i] < d0 || inc.day[i] > d1) continue
+    const dx = (inc.lng[i] - lng) * MXm
+    const dy = (inc.lat[i] - lat) * MYm
+    if (dx * dx + dy * dy > r2) continue
+    idx.push(i)
+    catCount.set(inc.cat[i], (catCount.get(inc.cat[i]) || 0) + 1)
+  }
+  idx.sort((a, b) => inc.day[b] - inc.day[a])
+  const cityDensity = countFiltered(inc, f) / SF_LAND_M2
+  const area = Math.PI * r2
+  const mult = cityDensity > 0 ? idx.length / area / cityDensity : 0
+  const top = [...catCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([c, count]) => ({ id: bundle.meta.categories[c].id, label: bundle.meta.categories[c].label, count }))
+  return { count: idx.length, mult, top, recent: idx.slice(0, 8) }
+}
+
 /**
  * Recomputes each feature's exposure tier `t` (0–4) in place: the citywide
  * percentile of its hex's incident count, counting only incidents matching the
