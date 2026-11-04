@@ -5,18 +5,14 @@ import { CATEGORY_COLORS, FALLBACK_DOT_COLOR } from '../config'
 
 export type SheetKind = 'none' | 'filters' | 'search'
 
-/** Presets shown as quick segments in the dock; the rest live in the filter sheet. */
-const DOCK_PRESETS = ['walking', 'parking', 'living'] as const
-
 interface DockProps {
-  meta: Meta
-  activePreset: string | null
-  applyPreset: (key: string) => void
+  selectedCount: number
+  totalCount: number
   sheet: SheetKind
   setSheet: (s: SheetKind) => void
 }
 
-export function Dock({ meta, activePreset, applyPreset, sheet, setSheet }: DockProps) {
+export function Dock({ selectedCount, totalCount, sheet, setSheet }: DockProps) {
   const toggle = (s: SheetKind) => setSheet(sheet === s ? 'none' : s)
   return (
     <div className="dock">
@@ -27,26 +23,14 @@ export function Dock({ meta, activePreset, applyPreset, sheet, setSheet }: DockP
       >
         🔍
       </button>
-      <div className="dock-seg">
-        {DOCK_PRESETS.map((key) => (
-          <button
-            key={key}
-            className={activePreset === key ? 'on' : ''}
-            onClick={() => applyPreset(key)}
-          >
-            {meta.presets[key]?.label ?? key}
-          </button>
-        ))}
-        <button className={activePreset === 'all' ? 'on' : ''} onClick={() => applyPreset('all')}>
-          All
-        </button>
-      </div>
       <button
-        className={`dock-round ${sheet === 'filters' ? 'on' : ''}`}
+        className={`dock-pill ${sheet === 'filters' ? 'on' : ''}`}
         onClick={() => toggle('filters')}
-        aria-label="Filters & info"
       >
-        ⚙︎
+        Categories
+        <span className="dock-pill-count">
+          {selectedCount === totalCount ? 'all' : `${selectedCount}/${totalCount}`}
+        </span>
       </button>
     </div>
   )
@@ -56,8 +40,6 @@ interface FilterSheetProps {
   meta: Meta
   catSel: Set<string>
   setCatSel: (s: Set<string>) => void
-  activePreset: string | null
-  applyPreset: (key: string) => void
   dayRange: [number, number]
   setDayRange: (r: [number, number]) => void
   onMethodology: () => void
@@ -77,10 +59,10 @@ export function FilterSheet(p: FilterSheetProps) {
         <span>Categories</span>
         <span className="sheet-val">
           <button
-            className={`mini-chip ${p.activePreset === 'property' ? 'on' : ''}`}
-            onClick={() => p.applyPreset('property')}
+            className="mini-chip"
+            onClick={() => p.setCatSel(new Set(meta.categories.map((c) => c.id)))}
           >
-            Property
+            All
           </button>
           <button className="mini-chip" onClick={() => p.setCatSel(new Set())}>None</button>
         </span>

@@ -102,6 +102,19 @@ html, body, #root {
   transition: background 0.15s;
 }
 .dock-round:hover { background: rgba(255, 255, 255, 0.1); }
+.dock-pill {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--glass-border); background: rgba(0, 0, 0, 0.3);
+  color: var(--text); font-size: 13px; font-weight: 500;
+  padding: 10px 18px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+}
+.dock-pill:hover { background: rgba(255, 255, 255, 0.1); }
+.dock-pill.on { background: rgba(255, 184, 77, 0.22); border-color: rgba(255, 184, 77, 0.5); }
+.dock-pill-count {
+  font-size: 11px; color: var(--text-dim); background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px; padding: 2px 8px;
+}
+.dock-pill.on .dock-pill-count { color: var(--amber); }
 .dock-round.on { background: rgba(255, 184, 77, 0.22); border-color: rgba(255, 184, 77, 0.5); }
 .dock-round.small { width: 32px; height: 32px; min-width: 32px; font-size: 11px; }
 

@@ -43,6 +43,4 @@ export const CATEGORY_COLORS: Record<string, string> = {
 }
 export const FALLBACK_DOT_COLOR = '#607d8b'
 
-export const DEFAULT_PRESET = 'walking'
-
 export const DATA_BASE = import.meta.env.BASE_URL + 'data/'

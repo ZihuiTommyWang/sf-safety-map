@@ -5,7 +5,7 @@ import type { SheetKind, SearchTarget } from './components/GlassUI'
 import MethodologyModal from './components/MethodologyModal'
 import type { DataBundle, FilterState } from './data'
 import { loadData, countFiltered, applyTiers, dayToISO, isoToDay, formatHour } from './data'
-import { DEFAULT_PRESET, CATEGORY_COLORS, FALLBACK_DOT_COLOR } from './config'
+import { CATEGORY_COLORS, FALLBACK_DOT_COLOR } from './config'
 
 interface PickedIncident {
   catId: string
@@ -53,7 +53,7 @@ export default function App() {
     loadData()
       .then((b) => {
         const fromHash = parseHash(b)
-        const cats = fromHash.cats ?? new Set(b.meta.presets[DEFAULT_PRESET].cats)
+        const cats = fromHash.cats ?? new Set(b.meta.categories.map((c) => c.id))
         const days = fromHash.day ?? ([b.meta.minDay, b.meta.maxDay] as [number, number])
         const catIdx = new Set(
           [...cats].map((id) => b.meta.categories.findIndex((c) => c.id === id)).filter((i) => i >= 0),
@@ -118,22 +118,6 @@ export default function App() {
     () => (bundle ? countFiltered(bundle.incidents, filter) : 0),
     [bundle, filter],
   )
-
-  const activePreset = useMemo(() => {
-    if (!bundle) return null
-    const ids = [...catSel].sort().join(',')
-    if (ids === bundle.meta.categories.map((c) => c.id).sort().join(',')) return 'all'
-    for (const [key, group] of Object.entries(bundle.meta.presets)) {
-      if (ids === [...group.cats].sort().join(',')) return key
-    }
-    return null
-  }, [bundle, catSel])
-
-  const applyPreset = (key: string) => {
-    if (!bundle) return
-    if (key === 'all') setCatSel(new Set(bundle.meta.categories.map((c) => c.id)))
-    else setCatSel(new Set(bundle.meta.presets[key].cats))
-  }
 
   const onPick = (indices: number[]) => {
     if (!bundle) return
@@ -205,8 +189,6 @@ export default function App() {
           meta={bundle.meta}
           catSel={catSel}
           setCatSel={setCatSel}
-          activePreset={activePreset}
-          applyPreset={applyPreset}
           dayRange={dayRange}
           setDayRange={setDayRange}
           onMethodology={() => setMethodologyOpen(true)}
@@ -217,9 +199,8 @@ export default function App() {
       )}
 
       <Dock
-        meta={bundle.meta}
-        activePreset={activePreset}
-        applyPreset={applyPreset}
+        selectedCount={catSel.size}
+        totalCount={bundle.meta.categories.length}
         sheet={sheet}
         setSheet={setSheet}
       />
