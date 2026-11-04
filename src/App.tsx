@@ -11,10 +11,22 @@ interface PickedIncident {
   catId: string
   catLabel: string
   desc: string
-  date: string
+  rel: string
+  longDate: string
   hour: string
-  resolution: string
+  outcome: string
   day: number
+}
+
+function relDayLabel(maxDay: number, d: number): string {
+  const n = maxDay - d
+  return n <= 0 ? 'Today' : n === 1 ? 'Yesterday' : n < 60 ? `${n} days ago` : dayToISO(d)
+}
+
+function longDayLabel(d: number): string {
+  return new Date(Date.UTC(2018, 0, 1) + d * 86400000).toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+  })
 }
 
 function parseHash(bundle: DataBundle) {
@@ -150,14 +162,6 @@ export default function App() {
   const spotRecent = useMemo(() => {
     if (!bundle || !spot) return []
     const { incidents, meta } = bundle
-    const relDay = (d: number) => {
-      const n = meta.maxDay - d
-      return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n < 60 ? `${n} days ago` : dayToISO(d)
-    }
-    const longDay = (d: number) =>
-      new Date(Date.UTC(2018, 0, 1) + d * 86400000).toLocaleDateString('en-US', {
-        month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
-      })
     return spot.recent.map(({ i, dist }) => {
       const cat = meta.categories[incidents.cat[i]]
       const resRaw = incidents.resolutions[incidents.res[i]]
@@ -165,9 +169,9 @@ export default function App() {
         catId: cat.id,
         catLabel: cat.label,
         desc: incidents.descs[incidents.desc[i]],
-        rel: relDay(incidents.day[i]),
-        longDate: longDay(incidents.day[i]),
-        hour: incidents.hour[i] >= 24 ? 'not recorded' : formatHour(incidents.hour[i]),
+        rel: relDayLabel(meta.maxDay, incidents.day[i]),
+        longDate: longDayLabel(incidents.day[i]),
+        hour: incidents.hour[i] >= 24 ? 'Not recorded' : formatHour(incidents.hour[i]),
         outcome: resRaw.includes('Open') ? 'Unresolved (open or active)' : resRaw,
         dist,
       }
@@ -175,7 +179,7 @@ export default function App() {
   }, [bundle, spot])
 
   const [expandedIncident, setExpandedIncident] = useState(-1)
-  useEffect(() => setExpandedIncident(-1), [searchTarget])
+  useEffect(() => setExpandedIncident(-1), [searchTarget, picked])
 
   const onPick = (indices: number[]) => {
     setSpotOpen(false)
@@ -188,13 +192,15 @@ export default function App() {
       if (seen.has(i)) continue
       seen.add(i)
       const cat = meta.categories[incidents.cat[i]]
+      const resRaw = incidents.resolutions[incidents.res[i]]
       items.push({
         catId: cat.id,
         catLabel: cat.label,
         desc: incidents.descs[incidents.desc[i]],
-        date: dayToISO(incidents.day[i]),
-        hour: formatHour(incidents.hour[i]),
-        resolution: incidents.resolutions[incidents.res[i]],
+        rel: relDayLabel(meta.maxDay, incidents.day[i]),
+        longDate: longDayLabel(incidents.day[i]),
+        hour: incidents.hour[i] >= 24 ? 'Not recorded' : formatHour(incidents.hour[i]),
+        outcome: resRaw.includes('Open') ? 'Unresolved (open or active)' : resRaw,
         day: incidents.day[i],
       })
     }
@@ -226,7 +232,7 @@ export default function App() {
           <strong>
             {searchTarget.label.split(',').slice(0, 2).join(', ')}
             <span className="card-sub">
-              within 300 m · {timeLabel === 'Year' ? 'last 12 months' : timeLabel === 'custom' ? 'custom dates' : `last ${timeLabel}`}
+              Within 300 m · {timeLabel === 'Year' ? 'Last 12 months' : timeLabel === 'custom' ? 'Custom dates' : `Last ${timeLabel}`}
             </span>
           </strong>
           <button className="close-btn" onClick={closeContent} aria-label="Close">
@@ -286,7 +292,7 @@ export default function App() {
           ))}
         </ul>
         {spot.count > spotRecent.length && (
-          <div className="incident-more">…and {(spot.count - spotRecent.length).toLocaleString()} more in this radius</div>
+          <div className="incident-more">+ {(spot.count - spotRecent.length).toLocaleString()} more in this radius</div>
         )}
       </div>
     ) : picked ? (
@@ -301,18 +307,33 @@ export default function App() {
         </div>
         <ul>
           {picked.slice(0, 50).map((it, i) => (
-            <li key={i} className="plain">
-              <span className="cat-dot" style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }} />
-              <div>
-                <div className="incident-desc">{it.desc}</div>
-                <div className="incident-meta">
-                  {it.catLabel} · {it.date} · {it.hour} · {it.resolution}
-                </div>
+            <li
+              key={i}
+              className={expandedIncident === i ? 'open' : ''}
+              onClick={() => setExpandedIncident(expandedIncident === i ? -1 : i)}
+            >
+              <div className="li-head">
+                <span className="cat-dot" style={{ background: CATEGORY_COLORS[it.catId] ?? FALLBACK_DOT_COLOR }} />
+                <span className="incident-desc">{it.catLabel}</span>
+                <span className="li-date">{it.rel}</span>
+                <span className="li-caret">▶</span>
               </div>
+              {expandedIncident === i && (
+                <div className="li-detail">
+                  <span>Details</span>
+                  <b>{it.desc}</b>
+                  <span>Date</span>
+                  <b>{it.longDate}</b>
+                  <span>Time</span>
+                  <b>{it.hour}</b>
+                  <span>Outcome</span>
+                  <b>{it.outcome}</b>
+                </div>
+              )}
             </li>
           ))}
         </ul>
-        {picked.length > 50 && <div className="incident-more">…and {picked.length - 50} more</div>}
+        {picked.length > 50 && <div className="incident-more">+ {picked.length - 50} more</div>}
       </div>
     ) : null
 
