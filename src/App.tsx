@@ -45,8 +45,6 @@ export default function App() {
   const [sheet, setSheet] = useState<SheetKind>('none')
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null)
   const [spotOpen, setSpotOpen] = useState(false)
-  const [locating, setLocating] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
   const [methodologyOpen, setMethodologyOpen] = useState(false)
   const [picked, setPicked] = useState<PickedIncident[] | null>(null)
   const [hasPicked, setHasPicked] = useState(false)
@@ -139,42 +137,11 @@ export default function App() {
     return `${fmt(dayRange[0])} – ${fmt(dayRange[1])}`
   }, [bundle, dayRange])
 
-  const noticeTimer = useRef<number>(undefined)
-  const showNotice = (msg: string) => {
-    setNotice(msg)
-    window.clearTimeout(noticeTimer.current)
-    noticeTimer.current = window.setTimeout(() => setNotice(null), 4500)
-  }
-
   const openSpot = (target: SearchTarget) => {
     setPicked(null)
     setSearchTarget(target)
     setSpotOpen(true)
     setHasPicked(true)
-  }
-
-  const nearMe = () => {
-    if (!navigator.geolocation) {
-      showNotice('Location is not available in this browser.')
-      return
-    }
-    setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false)
-        const { longitude: lng, latitude: lat } = pos.coords
-        if (lng < -122.55 || lng > -122.33 || lat < 37.68 || lat > 37.84) {
-          showNotice("You're outside San Francisco — search a spot instead.")
-          return
-        }
-        openSpot({ lng, lat, label: 'Your location', id: Date.now() })
-      },
-      () => {
-        setLocating(false)
-        showNotice('Could not get your location — check location permissions.')
-      },
-      { enableHighAccuracy: true, timeout: 8000 },
-    )
   }
 
   // Live stats for the open spot; re-derives when filters change.
@@ -288,11 +255,7 @@ export default function App() {
         timeLabel={timeLabel}
         sheet={sheet}
         setSheet={setSheet}
-        onNearMe={nearMe}
-        locating={locating}
       />
-
-      {notice && <div className="notice">{notice}</div>}
 
       {spotOpen && searchTarget && spot && (
         <div className="incident-card spot-card">

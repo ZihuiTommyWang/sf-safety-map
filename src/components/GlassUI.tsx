@@ -11,11 +11,9 @@ interface DockProps {
   timeLabel: string
   sheet: SheetKind
   setSheet: (s: SheetKind) => void
-  onNearMe: () => void
-  locating: boolean
 }
 
-export function Dock({ selectedCount, totalCount, timeLabel, sheet, setSheet, onNearMe, locating }: DockProps) {
+export function Dock({ selectedCount, totalCount, timeLabel, sheet, setSheet }: DockProps) {
   const toggle = (s: SheetKind) => setSheet(sheet === s ? 'none' : s)
   return (
     <div className="dock">
@@ -25,14 +23,6 @@ export function Dock({ selectedCount, totalCount, timeLabel, sheet, setSheet, on
         aria-label="Search"
       >
         🔍
-      </button>
-      <button
-        className={`dock-round ${locating ? 'on' : ''}`}
-        onClick={onNearMe}
-        aria-label="Near me"
-        disabled={locating}
-      >
-        📍
       </button>
       <button
         className={`dock-pill ${sheet === 'filters' ? 'on' : ''}`}
