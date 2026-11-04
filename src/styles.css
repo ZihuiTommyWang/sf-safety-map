@@ -237,18 +237,6 @@ html, body, #root {
 .close-btn:hover { color: var(--text); }
 
 /* ---------- spot card & notice ---------- */
-.card-sub {
-  padding: 0 16px; margin-top: -8px; font-size: 11px; color: var(--text-dim);
-}
-.card-verdict {
-  margin: 10px 0 0; padding: 0 16px; font-size: 13.5px; line-height: 1.5;
-}
-.card-chips {
-  display: flex; gap: 6px; padding: 10px 16px 6px; flex-wrap: wrap;
-}
-.mini-chip.trend-down { color: #7ddf8a; border-color: rgba(125, 223, 138, 0.4); }
-.mini-chip.trend-up { color: #ef5350; border-color: rgba(239, 83, 80, 0.4); }
-.mini-chip.share { color: var(--amber); border-color: rgba(255, 184, 77, 0.4); }
 .spot-stats {
   display: flex; gap: 10px; padding: 12px 16px 4px;
 }

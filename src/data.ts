@@ -138,20 +138,12 @@ export interface SpotStats {
   count: number
   /** Incident density here vs. the citywide average, under the same filters. */
   mult: number
-  /** Violent-crime density vs. the citywide violent average. */
-  vMult: number
-  /** Property-crime density vs. the citywide property average. */
-  pMult: number
-  /** Second half of the window vs. the first: +0.1 = up 10%. */
-  trend: number
   top: { id: string; label: string; count: number }[]
-  /** The most recent incidents in the radius, newest first, with distance. */
-  recent: { i: number; dist: number }[]
+  /** Indices of the most recent incidents in the radius, newest first. */
+  recent: number[]
 }
 
 const SF_LAND_M2 = 121e6 // ~121 km² of land
-const VIOLENT_IDS = new Set(['assault', 'homicide', 'robbery', 'sex-offenses', 'weapons'])
-const PROPERTY_IDS = new Set(['theft', 'car-break-in', 'vehicle-theft', 'burglary', 'vandalism', 'arson'])
 
 export function spotStats(
   bundle: DataBundle,
@@ -163,53 +155,26 @@ export function spotStats(
   const inc = bundle.incidents
   const r2 = radiusM * radiusM
   const [d0, d1] = f.dayRange
-  const midDay = (d0 + d1) / 2
-  // 0 = violent, 1 = property, 2 = other, per category index.
-  const klass = bundle.meta.categories.map((c) => (VIOLENT_IDS.has(c.id) ? 0 : PROPERTY_IDS.has(c.id) ? 1 : 2))
   const catCount = new Map<number, number>()
-  const local: { i: number; dist: number }[] = []
-  let cityN = 0
-  let vCity = 0
-  let pCity = 0
-  let vLocal = 0
-  let pLocal = 0
-  let firstHalf = 0
-  let secondHalf = 0
+  const idx: number[] = []
   for (let i = 0; i < inc.n; i++) {
     if (!f.cats.has(inc.cat[i])) continue
     if (inc.day[i] < d0 || inc.day[i] > d1) continue
-    const k = klass[inc.cat[i]]
-    cityN++
-    if (k === 0) vCity++
-    else if (k === 1) pCity++
     const dx = (inc.lng[i] - lng) * MXm
     const dy = (inc.lat[i] - lat) * MYm
-    const distSq = dx * dx + dy * dy
-    if (distSq > r2) continue
-    local.push({ i, dist: Math.round(Math.sqrt(distSq)) })
+    if (dx * dx + dy * dy > r2) continue
+    idx.push(i)
     catCount.set(inc.cat[i], (catCount.get(inc.cat[i]) || 0) + 1)
-    if (k === 0) vLocal++
-    else if (k === 1) pLocal++
-    if (inc.day[i] < midDay) firstHalf++
-    else secondHalf++
   }
-  local.sort((a, b) => inc.day[b.i] - inc.day[a.i])
+  idx.sort((a, b) => inc.day[b] - inc.day[a])
+  const cityDensity = countFiltered(inc, f) / SF_LAND_M2
   const area = Math.PI * r2
-  const ratio = (n: number, cityTotal: number) =>
-    cityTotal > 0 ? n / area / (cityTotal / SF_LAND_M2) : 0
+  const mult = cityDensity > 0 ? idx.length / area / cityDensity : 0
   const top = [...catCount.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([c, count]) => ({ id: bundle.meta.categories[c].id, label: bundle.meta.categories[c].label, count }))
-  return {
-    count: local.length,
-    mult: ratio(local.length, cityN),
-    vMult: ratio(vLocal, vCity),
-    pMult: ratio(pLocal, pCity),
-    trend: firstHalf > 0 ? (secondHalf - firstHalf) / firstHalf : 0,
-    top,
-    recent: local.slice(0, 8),
-  }
+  return { count: idx.length, mult, top, recent: idx.slice(0, 8) }
 }
 
 /**

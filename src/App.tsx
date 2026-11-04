@@ -20,14 +20,7 @@ interface PickedIncident {
 function parseHash(bundle: DataBundle) {
   const params = new URLSearchParams(window.location.hash.slice(1))
   const validIds = new Set(bundle.meta.categories.map((c) => c.id))
-  const out: { cats?: Set<string>; day?: [number, number]; spot?: { lng: number; lat: number; label: string } } = {}
-  const s = params.get('s')
-  if (s) {
-    const [lng, lat] = s.split(',').map(Number)
-    if (lng > -122.55 && lng < -122.33 && lat > 37.68 && lat < 37.84) {
-      out.spot = { lng, lat, label: params.get('sl') || 'Shared spot' }
-    }
-  }
+  const out: { cats?: Set<string>; day?: [number, number] } = {}
   const c = params.get('c')
   if (c) {
     const ids = c.split(',').filter((id) => validIds.has(id))
@@ -69,11 +62,6 @@ export default function App() {
         applyTiers(b, catIdx, days)
         setCatSel(cats)
         setDayRange(days)
-        if (fromHash.spot) {
-          setSearchTarget({ ...fromHash.spot, id: Date.now() })
-          setSpotOpen(true)
-          setHasPicked(true)
-        }
         setBundle(b)
       })
       .catch((e) => setError(String(e)))
@@ -89,13 +77,9 @@ export default function App() {
       params.set('c', [...catSel].join(','))
       params.set('from', dayToISO(dayRange[0]))
       params.set('to', dayToISO(dayRange[1]))
-      if (spotOpen && searchTarget) {
-        params.set('s', `${searchTarget.lng.toFixed(5)},${searchTarget.lat.toFixed(5)}`)
-        params.set('sl', searchTarget.label)
-      }
       history.replaceState(null, '', `#${params}`)
     }, 300)
-  }, [bundle, catSel, dayRange, spotOpen, searchTarget])
+  }, [bundle, catSel, dayRange])
 
   // Exposure tiers follow the category/date filters (debounced).
   const tierTimer = useRef<number>(undefined)
@@ -166,48 +150,22 @@ export default function App() {
     [bundle, filter, searchTarget],
   )
 
-  const spotRecent = useMemo(() => {
+  const spotRecent: PickedIncident[] = useMemo(() => {
     if (!bundle || !spot) return []
     const { incidents, meta } = bundle
-    const relDay = (d: number) => {
-      const n = meta.maxDay - d
-      return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n < 60 ? `${n} days ago` : dayToISO(d)
-    }
-    return spot.recent.map(({ i, dist }) => {
+    return spot.recent.map((i) => {
       const cat = meta.categories[incidents.cat[i]]
-      const resRaw = incidents.resolutions[incidents.res[i]]
       return {
         catId: cat.id,
+        catLabel: cat.label,
         desc: incidents.descs[incidents.desc[i]],
-        meta: `${relDay(incidents.day[i])} · ${dist} m away · ${resRaw.includes('Open') ? 'unresolved' : resRaw}`,
+        date: dayToISO(incidents.day[i]),
+        hour: formatHour(incidents.hour[i]),
+        resolution: incidents.resolutions[incidents.res[i]],
+        day: incidents.day[i],
       }
     })
   }, [bundle, spot])
-
-  const verdict = useMemo(() => {
-    if (!bundle || !spot) return ''
-    if (spot.count === 0) return 'No recorded incidents here for your filters — a quiet spot.'
-    const overall =
-      spot.mult < 0.8 ? 'Quieter than typical SF' : spot.mult < 1.3 ? 'About typical for SF' : 'Busier than typical SF'
-    const topLabels = spot.top
-      .slice(0, 2)
-      .map((t) => t.label.toLowerCase())
-      .join(' and ')
-    const violence =
-      spot.vMult < 0.85 ? 'below the city average' : spot.vMult < 1.15 ? 'near the city average' : 'above the city average'
-    return `${overall} — mostly ${topLabels}; violent incidents are ${violence}.`
-  }, [bundle, spot])
-
-  const [copied, setCopied] = useState(false)
-  const shareSpot = () => {
-    navigator.clipboard
-      .writeText(window.location.href)
-      .then(() => {
-        setCopied(true)
-        window.setTimeout(() => setCopied(false), 2000)
-      })
-      .catch(() => {})
-  }
 
   const onPick = (indices: number[]) => {
     setSpotOpen(false)
@@ -314,37 +272,28 @@ export default function App() {
               ✕
             </button>
           </div>
-          <div className="card-sub">within 300 m · {timeLabel === 'Year' ? 'last 12 months' : timeLabel.toLowerCase()}</div>
-          <p className="card-verdict">{verdict}</p>
-          {spot.count > 0 && (
-            <div className="spot-stats">
-              <div>
-                <b className={spot.vMult < 1 ? 'good' : spot.vMult < 2.5 ? 'mid' : 'bad'}>
-                  {spot.vMult.toFixed(1)}×
-                </b>
-                <span>violence vs city</span>
-              </div>
-              <div>
-                <b className={spot.pMult < 1 ? 'good' : spot.pMult < 2.5 ? 'mid' : 'bad'}>
-                  {spot.pMult.toFixed(1)}×
-                </b>
-                <span>property vs city</span>
-              </div>
+          <div className="spot-stats">
+            <div>
+              <b>{spot.count.toLocaleString()}</b>
+              <span>incidents · 300 m</span>
+            </div>
+            <div>
+              <b className={spot.mult < 1 ? 'good' : spot.mult < 2.5 ? 'mid' : 'bad'}>
+                {spot.mult.toFixed(1)}×
+              </b>
+              <span>city average</span>
+            </div>
+          </div>
+          {spot.top.length > 0 && (
+            <div className="spot-top">
+              {spot.top.map((t) => (
+                <span key={t.id}>
+                  <i className="cat-dot" style={{ background: CATEGORY_COLORS[t.id] ?? FALLBACK_DOT_COLOR }} />
+                  {t.label} · {t.count}
+                </span>
+              ))}
             </div>
           )}
-          <div className="card-chips">
-            {spot.trend <= -0.05 ? (
-              <span className="mini-chip trend-down">↘ down {Math.round(-spot.trend * 100)}%</span>
-            ) : spot.trend >= 0.05 ? (
-              <span className="mini-chip trend-up">↗ up {Math.round(spot.trend * 100)}%</span>
-            ) : (
-              <span className="mini-chip">→ steady</span>
-            )}
-            <span className="mini-chip">{spot.count.toLocaleString()} incidents</span>
-            <button className="mini-chip share" onClick={shareSpot}>
-              {copied ? '✓ copied' : '⤴ share'}
-            </button>
-          </div>
           <ul>
             {spotRecent.map((it, i) => (
               <li key={i}>
@@ -354,7 +303,9 @@ export default function App() {
                 />
                 <div>
                   <div className="incident-desc">{it.desc}</div>
-                  <div className="incident-meta">{it.meta}</div>
+                  <div className="incident-meta">
+                    {it.catLabel} · {it.date} · {it.hour} · {it.resolution}
+                  </div>
                 </div>
               </li>
             ))}
