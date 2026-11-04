@@ -56,11 +56,12 @@ interface SheetProps {
   onResult: (t: SearchTarget) => void
   /** Card content (spot report / tapped incidents); renders in the sheet body. */
   children?: ReactNode
-  onCollapse: () => void
 }
 
 export function Sheet(p: SheetProps) {
   const [panel, setPanel] = useState<Panel>('none')
+  const [minimized, setMinimized] = useState(false)
+  const dragY = useRef<number | null>(null)
   const [q, setQ] = useState('')
   const [sugs, setSugs] = useState<Suggestion[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -137,19 +138,34 @@ export function Sheet(p: SheetProps) {
     p.onResult({ lng: s.lng, lat: s.lat, label: s.sub ? `${s.title}, ${s.sub}` : s.title, id: Date.now() })
   }
 
-  const togglePanel = (next: Panel) => setPanel(panel === next ? 'none' : next)
+  const togglePanel = (next: Panel) => {
+    setMinimized(false)
+    setPanel(panel === next ? 'none' : next)
+  }
   const searching = q.trim().length >= 3
-  const collapse = () => {
-    setQ('')
-    setSugs([])
-    setPanel('none')
-    inputRef.current?.blur()
-    p.onCollapse()
+
+  // Grab handle: tap toggles; drag up expands, drag down minimizes.
+  const onGrabDown = (e: React.PointerEvent) => {
+    dragY.current = e.clientY
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  const onGrabUp = (e: React.PointerEvent) => {
+    if (dragY.current === null) return
+    const dy = e.clientY - dragY.current
+    dragY.current = null
+    if (dy > 24) setMinimized(true)
+    else if (dy < -24) setMinimized(false)
+    else setMinimized((m) => !m)
   }
 
   return (
-    <div className="sheet-shell">
-      <button className="sheet-grab" onClick={collapse} aria-label="Collapse" />
+    <div className={`sheet-shell ${minimized ? 'min' : ''}`}>
+      <button
+        className="sheet-grab"
+        onPointerDown={onGrabDown}
+        onPointerUp={onGrabUp}
+        aria-label={minimized ? 'Expand' : 'Minimize'}
+      />
       <div className="sheet-search">
         <SearchIcon />
         <input
@@ -157,7 +173,10 @@ export function Sheet(p: SheetProps) {
           value={q}
           placeholder="Search any SF address or place…"
           onChange={(e) => setQ(e.target.value)}
-          onFocus={() => setPanel('none')}
+          onFocus={() => {
+            setPanel('none')
+            setMinimized(false)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && sugs.length) pick(sugs[0])
             if (e.key === 'Escape') {

@@ -365,7 +365,6 @@ export default function App() {
           timeLabel === 'Year' ? 'Year' : timeLabel === '30 days' ? '30 Days' : timeLabel === '6 months' ? '6 Months' : 'Custom'
         }
         onResult={openSpot}
-        onCollapse={closeContent}
       >
         {sheetContent}
       </Sheet>
