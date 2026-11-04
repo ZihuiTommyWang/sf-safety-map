@@ -50,7 +50,10 @@ html, body, #root {
   font-size: 13px; color: #cdd1d5; white-space: nowrap;
 }
 .count-capsule b { color: #fff; font-weight: 650; }
+.count-capsule { cursor: pointer; transition: background 0.15s; }
+.count-capsule:hover { background: rgba(40, 43, 53, 0.7); }
 .capsule-dim { color: var(--amber); }
+.capsule-info { color: var(--text-dim); margin-left: 7px; font-size: 12px; }
 .capsule-hour { color: var(--amber); font-weight: 600; }
 
 /* ---------- hint & legend ---------- */

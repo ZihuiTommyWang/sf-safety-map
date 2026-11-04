@@ -232,10 +232,11 @@ export default function App() {
         onPick={onPick}
       />
 
-      <div className="count-capsule">
+      <button className="count-capsule" onClick={() => setMethodologyOpen(true)}>
         <b>{shownCount.toLocaleString()}</b> incidents
         {timeLabel !== 'Year' && <span className="capsule-dim"> · {timeLabel === '30 days' || timeLabel === '6 months' ? `last ${timeLabel}` : timeLabel}</span>}
-      </div>
+        <span className="capsule-info">ⓘ</span>
+      </button>
 
       {!hasPicked && (
         <div className="zoom-hint">Every glow is a real incident — tap one to read it</div>
@@ -248,12 +249,7 @@ export default function App() {
       </div>
 
       {sheet === 'filters' && (
-        <FilterSheet
-          meta={bundle.meta}
-          catSel={catSel}
-          setCatSel={setCatSel}
-          onMethodology={() => setMethodologyOpen(true)}
-        />
+        <FilterSheet meta={bundle.meta} catSel={catSel} setCatSel={setCatSel} />
       )}
       {sheet === 'time' && (
         <TimeSheet meta={bundle.meta} dayRange={dayRange} setDayRange={setDayRange} />

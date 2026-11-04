@@ -104,7 +104,6 @@ interface FilterSheetProps {
   meta: Meta
   catSel: Set<string>
   setCatSel: (s: Set<string>) => void
-  onMethodology: () => void
 }
 
 export function FilterSheet(p: FilterSheetProps) {
@@ -140,7 +139,6 @@ export function FilterSheet(p: FilterSheetProps) {
         ))}
       </div>
       <div className="sheet-links">
-        <button className="link-btn" onClick={p.onMethodology}>Methodology & data</button>
         <a href="https://github.com/ZihuiTommyWang/sf-safety-map" target="_blank" rel="noreferrer">GitHub</a>
         <span>Updated {meta.built.slice(0, 10)}</span>
       </div>
