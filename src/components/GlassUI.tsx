@@ -106,7 +106,7 @@ export function Sheet(p: SheetProps) {
     const seq = ++seqRef.current
 
     const local: Suggestion[] = index
-      ? searchAddresses(index, query, 4).map((a) => ({ lng: a.lng, lat: a.lat, title: a.title, sub: a.sub }))
+      ? searchAddresses(index, query, 3).map((a) => ({ lng: a.lng, lat: a.lat, title: a.title, sub: a.sub }))
       : []
     setSugs(local)
     setError(null)
@@ -128,7 +128,7 @@ export function Sheet(p: SheetProps) {
         const seen = new Set(local.map((s) => normKey(s.title)))
         const out = [...local]
         for (const f of data.features ?? []) {
-          if (out.length >= 7) break
+          if (out.length >= 5) break
           const [lng, lat] = f.geometry.coordinates
           if (lng < SF_BBOX.minLng || lng > SF_BBOX.maxLng || lat < SF_BBOX.minLat || lat > SF_BBOX.maxLat) continue
           const pr = f.properties
