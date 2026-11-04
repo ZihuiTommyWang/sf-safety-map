@@ -31,6 +31,9 @@ jobs:
       - run: node scripts/build-data.mjs
         env:
           SODA_APP_TOKEN: ${{ secrets.SODA_APP_TOKEN }}
+      - run: node scripts/build-addresses.mjs
+        env:
+          SODA_APP_TOKEN: ${{ secrets.SODA_APP_TOKEN }}
       - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
