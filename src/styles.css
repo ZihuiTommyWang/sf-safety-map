@@ -228,7 +228,14 @@ html, body, #root {
 .modal-footnote { color: var(--text-dim); font-size: 12.5px; }
 
 /* ---------- maplibre tweaks ---------- */
-.maplibregl-ctrl-attrib { font-size: 10px; }
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+  background: rgba(16, 18, 22, 0.72) !important;
+  color: var(--text-dim);
+  border-radius: 10px 0 0 0;
+}
+.maplibregl-ctrl-attrib a { color: var(--text-dim); }
+.maplibregl-ctrl-attrib-button { filter: invert(0.8); }
 .maplibregl-ctrl-bottom-right { bottom: 0; }
 
 /* ---------- mobile ---------- */

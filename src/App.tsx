@@ -213,7 +213,7 @@ export default function App() {
       </div>
 
       {!hasPicked && (
-        <div className="zoom-hint">Every glow is one real incident — tap any of them to read what happened</div>
+        <div className="zoom-hint">Every glow is a real incident — tap one to read it</div>
       )}
 
       <div className="legend">
