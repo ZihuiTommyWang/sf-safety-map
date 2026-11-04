@@ -47,7 +47,6 @@ export default function App() {
   const [spotOpen, setSpotOpen] = useState(false)
   const [methodologyOpen, setMethodologyOpen] = useState(false)
   const [picked, setPicked] = useState<PickedIncident[] | null>(null)
-  const [hasPicked, setHasPicked] = useState(false)
   const [tierVersion, setTierVersion] = useState(0)
 
   useEffect(() => {
@@ -141,7 +140,6 @@ export default function App() {
     setPicked(null)
     setSearchTarget(target)
     setSpotOpen(true)
-    setHasPicked(true)
   }
 
   // Live stats for the open spot; re-derives when filters change.
@@ -202,7 +200,6 @@ export default function App() {
     }
     items.sort((a, b) => b.day - a.day)
     setPicked(items)
-    setHasPicked(true)
   }
 
   if (error) {
@@ -237,16 +234,6 @@ export default function App() {
         {timeLabel !== 'Year' && <span className="capsule-dim"> · {timeLabel === '30 days' || timeLabel === '6 months' ? `last ${timeLabel}` : timeLabel}</span>}
         <span className="capsule-info">ⓘ</span>
       </button>
-
-      {!hasPicked && (
-        <div className="zoom-hint">Every glow is a real incident — tap one to read it</div>
-      )}
-
-      <div className="legend">
-        <span>Quiet</span>
-        <div className="legend-bar" />
-        <span>Intense</span>
-      </div>
 
       {sheet === 'filters' && (
         <FilterSheet meta={bundle.meta} catSel={catSel} setCatSel={setCatSel} />
