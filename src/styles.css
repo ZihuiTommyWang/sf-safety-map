@@ -50,7 +50,7 @@ html, body, #root {
 }
 .topbar > * { pointer-events: auto; }
 .wordmark {
-  font-size: 13px; font-weight: 750; letter-spacing: 1.5px;
+  font-size: 14px; font-weight: 750; letter-spacing: 0.2px;
   color: var(--text);
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }

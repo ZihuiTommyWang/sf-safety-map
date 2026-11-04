@@ -174,10 +174,10 @@ export function Sheet(p: SheetProps) {
       </div>
       <div className="sheet-filters">
         <button className={panel === 'crimes' ? 'on' : ''} onClick={() => togglePanel('crimes')}>
-          crimes · <b>{p.catSel.size === p.meta.categories.length ? 'all' : `${p.catSel.size}/${p.meta.categories.length}`}</b>
+          Crimes · <b>{p.catSel.size === p.meta.categories.length ? 'All' : `${p.catSel.size}/${p.meta.categories.length}`}</b>
         </button>
         <button className={panel === 'time' ? 'on' : ''} onClick={() => togglePanel('time')}>
-          time · <b>{p.timeBadge}</b>
+          Time · <b>{p.timeBadge}</b>
         </button>
       </div>
 

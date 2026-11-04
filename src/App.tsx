@@ -327,9 +327,9 @@ export default function App() {
       />
 
       <div className="topbar">
-        <span className="wordmark">SF SAFETY</span>
+        <span className="wordmark">SF Safety Map</span>
         <button className="count-chip" onClick={() => setMethodologyOpen(true)}>
-          <b>{shownCount.toLocaleString()}</b>
+          <b>{shownCount.toLocaleString()}</b> Incidents
           <span className="count-chip-info">ⓘ</span>
         </button>
       </div>
@@ -341,7 +341,7 @@ export default function App() {
         dayRange={dayRange}
         setDayRange={setDayRange}
         timeBadge={
-          timeLabel === 'Year' ? 'year' : timeLabel === '30 days' ? '30 d' : timeLabel === '6 months' ? '6 mo' : 'custom'
+          timeLabel === 'Year' ? 'Year' : timeLabel === '30 days' ? '30 Days' : timeLabel === '6 months' ? '6 Months' : 'Custom'
         }
         onResult={openSpot}
         onCollapse={closeContent}
