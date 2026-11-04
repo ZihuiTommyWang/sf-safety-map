@@ -142,18 +142,59 @@ export default function App() {
     return 'custom'
   }, [bundle, dayRange])
 
+  // A history entry backs the open card, so the phone back gesture (and Esc)
+  // closes it instead of leaving the site.
+  const cardPushed = useRef(false)
+  const clearContent = () => {
+    cardPushed.current = false
+    setSpotOpen(false)
+    setSearchTarget(null)
+    setPicked(null)
+  }
+  useEffect(() => {
+    const onPop = () => clearContent()
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  const pushCardEntry = () => {
+    if (!cardPushed.current) {
+      history.pushState({ card: true }, '')
+      cardPushed.current = true
+    }
+  }
+
   const openSpot = (target: SearchTarget) => {
     setPicked(null)
     setSearchTarget(target)
     setSpotOpen(true)
     setContentVersion((v) => v + 1)
+    pushCardEntry()
   }
 
   const closeContent = () => {
-    setSpotOpen(false)
-    setSearchTarget(null)
-    setPicked(null)
+    if (cardPushed.current) history.back()
+    else clearContent()
   }
+
+  const [dismissVersion, setDismissVersion] = useState(0)
+  const onMapDismiss = () => {
+    closeContent()
+    setDismissVersion((v) => v + 1)
+  }
+
+  const onAreaPick = (lng: number, lat: number) => {
+    openSpot({ lng, lat, label: 'This area', id: Date.now() })
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onMapDismiss()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Live stats for the open spot; re-derives when filters change.
   const spot = useMemo(
@@ -209,6 +250,7 @@ export default function App() {
     items.sort((a, b) => b.day - a.day)
     setPicked(items)
     setContentVersion((v) => v + 1)
+    pushCardEntry()
   }
 
   if (error) {
@@ -348,6 +390,8 @@ export default function App() {
         tierVersion={tierVersion}
         searchTarget={searchTarget}
         onPick={onPick}
+        onAreaPick={onAreaPick}
+        onDismiss={onMapDismiss}
       />
 
       <div className="topbar">
@@ -369,6 +413,7 @@ export default function App() {
         }
         onResult={openSpot}
         contentVersion={contentVersion}
+        dismissVersion={dismissVersion}
       >
         {sheetContent}
       </Sheet>

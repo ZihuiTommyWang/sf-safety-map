@@ -58,6 +58,8 @@ interface SheetProps {
   children?: ReactNode
   /** Bumped whenever new content arrives, so the sheet auto-expands to show it. */
   contentVersion: number
+  /** Bumped on map-tap dismiss / Escape: close panels and clear the search. */
+  dismissVersion: number
 }
 
 export function Sheet(p: SheetProps) {
@@ -84,6 +86,15 @@ export function Sheet(p: SheetProps) {
     setSugs([])
     inputRef.current?.blur()
   }, [p.contentVersion])
+
+  // Dismiss gesture (empty map tap, Escape): tidy the sheet back to idle.
+  useEffect(() => {
+    if (p.dismissVersion === 0) return
+    setPanel('none')
+    setQ('')
+    setSugs([])
+    inputRef.current?.blur()
+  }, [p.dismissVersion])
 
   useEffect(() => {
     const query = q.trim()

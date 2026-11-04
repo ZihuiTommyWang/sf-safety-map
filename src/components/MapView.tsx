@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, SF_CENTER, SF_BOUNDS, INITIAL_ZOOM, MIN_ZOOM, EXPOSURE } from '../config'
@@ -13,18 +13,33 @@ interface Props {
   tierVersion: number
   searchTarget: SearchTarget | null
   onPick: (indices: number[]) => void
+  /** Tap below DETAIL_ZOOM: open an area report instead of a dot list. */
+  onAreaPick: (lng: number, lat: number) => void
+  /** Tap on empty map at detail zoom: dismiss whatever is open. */
+  onDismiss: () => void
 }
+
+/** Below this zoom a tap means "this area", not "these exact dots". */
+const DETAIL_ZOOM = 14
+
+/** Vertical offset so a focused point lands above the sheet, not under it. */
+const sheetOffset = (): [number, number] => [0, -Math.min(window.innerHeight * 0.18, 170)]
 
 const tierMatch = (values: readonly number[]) =>
   ['match', ['get', 't'], 0, values[0], 1, values[1], 2, values[2], 3, values[3], values[4]]
 
-export default function MapView({ bundle, filter, tierVersion, searchTarget, onPick }: Props) {
+export default function MapView({ bundle, filter, tierVersion, searchTarget, onPick, onAreaPick, onDismiss }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
   const readyRef = useRef(false)
+  const [painted, setPainted] = useState(false)
   const onPickRef = useRef(onPick)
+  const onAreaPickRef = useRef(onAreaPick)
+  const onDismissRef = useRef(onDismiss)
   onPickRef.current = onPick
+  onAreaPickRef.current = onAreaPick
+  onDismissRef.current = onDismiss
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -77,13 +92,23 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
 
     map.on('click', (e) => {
       if (!readyRef.current) return
+      if (map.getZoom() < DETAIL_ZOOM) {
+        onAreaPickRef.current(e.lngLat.lng, e.lngLat.lat)
+        return
+      }
       const pad = 8
       const feats = map.queryRenderedFeatures(
         [[e.point.x - pad, e.point.y - pad], [e.point.x + pad, e.point.y + pad]],
         { layers: ['fly-core'] },
       )
-      if (feats.length) onPickRef.current(feats.map((ft) => ft.properties!.i as number))
+      if (feats.length) {
+        onPickRef.current(feats.map((ft) => ft.properties!.i as number))
+        map.easeTo({ center: e.lngLat, offset: sheetOffset(), duration: 500 })
+      } else {
+        onDismissRef.current()
+      }
     })
+    map.once('idle', () => setPainted(true))
     map.on('mousemove', (e) => {
       if (!readyRef.current) return
       const feats = map.queryRenderedFeatures(e.point, { layers: ['fly-core'] })
@@ -113,7 +138,12 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
     markerRef.current = new maplibregl.Marker({ color: '#ffb84d' })
       .setLngLat([searchTarget.lng, searchTarget.lat])
       .addTo(map)
-    map.flyTo({ center: [searchTarget.lng, searchTarget.lat], zoom: 15.6, duration: 1600 })
+    map.flyTo({
+      center: [searchTarget.lng, searchTarget.lat],
+      zoom: Math.max(map.getZoom(), 15.2),
+      offset: sheetOffset(),
+      duration: 1400,
+    })
   }, [searchTarget])
 
   // Tiers were rewritten in place — push the updated GeoJSON to the GPU.
@@ -124,7 +154,7 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
     src?.setData(bundle.geojson)
   }, [bundle, tierVersion])
 
-  return <div ref={containerRef} className="map-container" />
+  return <div ref={containerRef} className={`map-container ${painted ? 'painted' : ''}`} />
 }
 
 function applyFilters(map: maplibregl.Map, filter: FilterState) {
