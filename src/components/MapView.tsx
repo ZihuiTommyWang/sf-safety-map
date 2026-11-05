@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { MAP_STYLE, SF_CENTER, SF_BOUNDS, INITIAL_ZOOM, MIN_ZOOM, EXPOSURE } from '../config'
+import { MAP_STYLE, EXPOSURE } from '../config'
 import type { DataBundle, FilterState } from '../data'
 import { toMapFilter } from '../data'
 import type { SearchTarget } from './GlassUI'
+import { CITY } from '../city'
 
 interface Props {
   bundle: DataBundle
   filter: FilterState
-  /** Bumped whenever exposure tiers were rewritten in bundle.geojson. */
+  /** Bumped whenever exposure tiers were rewritten in bundle.chunks. */
   tierVersion: number
   searchTarget: SearchTarget | null
   onPick: (indices: number[]) => void
@@ -33,6 +34,8 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
   const readyRef = useRef(false)
+  const addedChunks = useRef(0)
+  const coreLayers = useRef<string[]>([])
   const [painted, setPainted] = useState(false)
   const onPickRef = useRef(onPick)
   const onAreaPickRef = useRef(onAreaPick)
@@ -41,30 +44,25 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
   onAreaPickRef.current = onAreaPick
   onDismissRef.current = onDismiss
 
-  useEffect(() => {
-    if (!containerRef.current) return
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: MAP_STYLE,
-      center: SF_CENTER,
-      zoom: INITIAL_ZOOM,
-      bounds: [[-122.525, 37.703], [-122.355, 37.837]],
-      fitBoundsOptions: { padding: 20 },
-      minZoom: MIN_ZOOM,
-      maxBounds: SF_BOUNDS,
-      attributionControl: { compact: true, customAttribution: 'Incident data: <a href="https://data.sf.gov/d/wg3w-h783">DataSF</a>' },
-    })
-    mapRef.current = map
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
-
-    map.on('load', () => {
-      map.addSource('incidents', { type: 'geojson', data: bundle.geojson })
-
-      // Halo behind the hottest tiers, so dense cores visibly bloom.
+  // Incident data lives in one source + layer pair PER loaded chunk: pushing a
+  // single million-feature collection to the GL worker runs the tab out of
+  // memory, while per-chunk updates stay bounded.
+  const syncChunks = (map: maplibregl.Map, f: FilterState) => {
+    for (let k = addedChunks.current; k < bundle.chunks.length; k++) {
+      // maxzoom 15 + no buffer keep the worker's tile index small; point
+      // positions overzoom from z15 tiles with sub-meter error, so individual
+      // dots at street zoom are unaffected.
+      map.addSource(`incidents-${k}`, {
+        type: 'geojson',
+        data: bundle.chunks[k],
+        maxzoom: 15,
+        buffer: 8,
+        tolerance: 0,
+      })
       map.addLayer({
-        id: 'fly-hotglow',
+        id: `fly-hotglow-${k}`,
         type: 'circle',
-        source: 'incidents',
+        source: `incidents-${k}`,
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 4.2, 15, 11],
           'circle-color': EXPOSURE.hotGlowColor,
@@ -73,9 +71,9 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
         },
       })
       map.addLayer({
-        id: 'fly-core',
+        id: `fly-core-${k}`,
         type: 'circle',
-        source: 'incidents',
+        source: `incidents-${k}`,
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'],
             11, tierMatch(EXPOSURE.radiusZ11) as never,
@@ -85,8 +83,30 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
           'circle-opacity': tierMatch(EXPOSURE.opacity) as never,
         },
       })
+      coreLayers.current.push(`fly-core-${k}`)
+      addedChunks.current = k + 1
+    }
+    applyFilters(map, f, addedChunks.current)
+  }
 
-      applyFilters(map, filter)
+  useEffect(() => {
+    if (!containerRef.current) return
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: MAP_STYLE,
+      center: CITY.center,
+      zoom: CITY.initialZoom,
+      bounds: CITY.fitBounds,
+      fitBoundsOptions: { padding: 20 },
+      minZoom: CITY.minZoom,
+      maxBounds: CITY.maxBounds,
+      attributionControl: { compact: true, customAttribution: `Incident data: <a href="${CITY.attribution.url}">${CITY.attribution.label}</a>` },
+    })
+    mapRef.current = map
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
+
+    map.on('load', () => {
+      syncChunks(map, filter)
       readyRef.current = true
     })
 
@@ -99,7 +119,7 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
       const pad = 8
       const feats = map.queryRenderedFeatures(
         [[e.point.x - pad, e.point.y - pad], [e.point.x + pad, e.point.y + pad]],
-        { layers: ['fly-core'] },
+        { layers: coreLayers.current },
       )
       if (feats.length) {
         onPickRef.current(feats.map((ft) => ft.properties!.i as number))
@@ -111,12 +131,14 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
     map.once('idle', () => setPainted(true))
     map.on('mousemove', (e) => {
       if (!readyRef.current) return
-      const feats = map.queryRenderedFeatures(e.point, { layers: ['fly-core'] })
+      const feats = map.queryRenderedFeatures(e.point, { layers: coreLayers.current })
       map.getCanvas().style.cursor = feats.length ? 'pointer' : ''
     })
 
     return () => {
       readyRef.current = false
+      addedChunks.current = 0
+      coreLayers.current = []
       map.remove()
       mapRef.current = null
     }
@@ -126,7 +148,7 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
   useEffect(() => {
     const map = mapRef.current
     if (!map || !readyRef.current) return
-    applyFilters(map, filter)
+    applyFilters(map, filter, addedChunks.current)
   }, [filter])
 
   useEffect(() => {
@@ -146,20 +168,27 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
     })
   }, [searchTarget])
 
-  // Tiers were rewritten in place — push the updated GeoJSON to the GPU.
+  // Tiers were rewritten in place (and chunks may have been added) — push the
+  // updated GeoJSON to the GPU, one bounded chunk at a time.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !readyRef.current) return
-    const src = map.getSource('incidents') as maplibregl.GeoJSONSource | undefined
-    src?.setData(bundle.geojson)
+    syncChunks(map, filter)
+    for (let k = 0; k < bundle.chunks.length; k++) {
+      const src = map.getSource(`incidents-${k}`) as maplibregl.GeoJSONSource | undefined
+      src?.setData(bundle.chunks[k])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bundle, tierVersion])
 
   return <div ref={containerRef} className={`map-container ${painted ? 'painted' : ''}`} />
 }
 
-function applyFilters(map: maplibregl.Map, filter: FilterState) {
+function applyFilters(map: maplibregl.Map, filter: FilterState, chunkCount: number) {
   const f = toMapFilter(filter) as never
-  map.setFilter('fly-core', f)
-  // The halo only backs the hottest dots.
-  map.setFilter('fly-hotglow', ['all', f, ['>=', ['get', 't'], 3]] as never)
+  for (let k = 0; k < chunkCount; k++) {
+    map.setFilter(`fly-core-${k}`, f)
+    // The halo only backs the hottest dots.
+    map.setFilter(`fly-hotglow-${k}`, ['all', f, ['>=', ['get', 't'], 3]] as never)
+  }
 }

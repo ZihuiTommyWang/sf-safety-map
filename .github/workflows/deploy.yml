@@ -27,18 +27,54 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node --test scripts/categories.test.mjs
+      - run: node --test scripts/categories.test.mjs scripts/categories-nyc.test.mjs
       - run: node scripts/build-data.mjs
         env:
           SODA_APP_TOKEN: ${{ secrets.SODA_APP_TOKEN }}
       - run: node scripts/build-addresses.mjs
         env:
           SODA_APP_TOKEN: ${{ secrets.SODA_APP_TOKEN }}
-      - run: npm run build
-      - name: Assemble site (app at /sf/, root files from root-site/)
+      # NYC data only changes when the NYPD publishes (quarterly), so the
+      # ~45-minute NYC build is cached keyed on the published-through date and
+      # skipped whenever that date hasn't moved. If the API is down, the
+      # newest cached data is used instead — NYC flakiness never blocks the
+      # nightly SF refresh. Only a run with no NYC data at all fails.
+      - name: Probe NYPD published-through date
+        id: nyc
+        run: echo "through=$(node scripts/nyc-data-through.mjs)" >> "$GITHUB_OUTPUT"
+        env:
+          SODA_APP_TOKEN: ${{ secrets.SODA_APP_TOKEN }}
+      - name: Restore cached NYC data
+        id: nyc-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: public-nyc/data
+          key: nyc-data-v1-${{ steps.nyc.outputs.through }}
+          restore-keys: nyc-data-v1-
+      - name: Build NYC data (new NYPD release)
+        id: nyc-build
+        if: steps.nyc-cache.outputs.cache-hit != 'true' && steps.nyc.outputs.through != 'unknown'
+        continue-on-error: true
         run: |
-          mkdir -p site/sf
+          node scripts/build-data-nyc.mjs
+          node scripts/build-addresses-nyc.mjs
+        env:
+          SODA_APP_TOKEN: ${{ secrets.SODA_APP_TOKEN }}
+      - name: Require NYC data from build or cache
+        run: test -f public-nyc/data/meta.json
+      - name: Save NYC data cache
+        if: steps.nyc-build.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: public-nyc/data
+          key: nyc-data-v1-${{ steps.nyc.outputs.through }}
+      - run: npm run build
+      - run: VITE_CITY=nyc npx vite build --outDir dist-nyc
+      - name: Assemble site (apps at /sf/ and /nyc/, root files from root-site/)
+        run: |
+          mkdir -p site/sf site/nyc
           cp -r dist/. site/sf/
+          cp -r dist-nyc/. site/nyc/
           cp -r root-site/. site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

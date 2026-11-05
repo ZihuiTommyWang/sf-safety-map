@@ -2,14 +2,6 @@
 
 export const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
 
-export const SF_CENTER: [number, number] = [-122.4327, 37.7689]
-export const SF_BOUNDS: [[number, number], [number, number]] = [
-  [-122.585, 37.665],
-  [-122.28, 37.865],
-]
-export const INITIAL_ZOOM = 12.2
-export const MIN_ZOOM = 10.5
-
 // "Exposure" firefly rendering: every incident is one amber dot, and dots in
 // dense areas overexpose toward white-hot (like a long-exposure photo). A dot's
 // tier (0–4) is the citywide percentile of its ~140m hex's incident count,
