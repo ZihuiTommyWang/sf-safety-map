@@ -39,10 +39,22 @@ const SELECT = [
 const headers = { Accept: 'application/json', 'User-Agent': 'city-safety-map-build (github.com/ZihuiTommyWang/sf-safety-map)' }
 if (process.env.SODA_APP_TOKEN) headers['X-App-Token'] = process.env.SODA_APP_TOKEN
 
+// The API routinely hangs or 5xxs on individual pages of a multi-million-row
+// pull — retry each page with backoff rather than losing the whole build.
 async function fetchJSON(url) {
-  const res = await fetch(url, { headers })
-  if (!res.ok) throw new Error(`NYC Open Data request failed: ${res.status} ${await res.text()}`)
-  return res.json()
+  let lastErr
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(120000) })
+      if (!res.ok) throw new Error(`NYC Open Data request failed: ${res.status} ${await res.text()}`)
+      return await res.json()
+    } catch (err) {
+      lastErr = err
+      process.stderr.write(`request failed (attempt ${attempt}/5): ${err.message || err}\n`)
+      await new Promise((r) => setTimeout(r, 10000 * attempt))
+    }
+  }
+  throw lastErr
 }
 
 // The data's "now": the newest plausible date in the YTD dataset (it contains
