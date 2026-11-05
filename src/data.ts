@@ -52,7 +52,12 @@ export interface Incidents {
 export interface DataBundle {
   meta: Meta
   incidents: Incidents
-  geojson: GeoJSON.FeatureCollection
+  /**
+   * One FeatureCollection per loaded data file (SF: just one). Kept separate so
+   * MapLibre updates transfer chunk-by-chunk — a single million-feature
+   * collection OOMs the tab when pushed to the GL worker.
+   */
+  chunks: GeoJSON.FeatureCollection[]
   /** Hex id per incident, for exposure-tier density computation. */
   pointHex: Int32Array
   hexCount: number
@@ -90,15 +95,17 @@ async function fetchJSON<T>(name: string): Promise<T> {
   return r.json() as Promise<T>
 }
 
-/** Append features for incidents [from, inc.n) to the (mutable) geojson. */
-function appendFeatures(geojson: GeoJSON.FeatureCollection, inc: Incidents, from: number): void {
+/** Build a FeatureCollection for incidents [from, inc.n). */
+function buildChunk(inc: Incidents, from: number): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = new Array(inc.n - from)
   for (let i = from; i < inc.n; i++) {
-    geojson.features.push({
+    features[i - from] = {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [inc.lng[i], inc.lat[i]] },
-      properties: { i, c: inc.cat[i], d: inc.day[i], h: inc.hour[i], t: 0 },
-    })
+      properties: { i, c: inc.cat[i], d: inc.day[i], t: 0 },
+    }
   }
+  return { type: 'FeatureCollection', features }
 }
 
 /** Merge a chunk into the bundle's columnar store, re-interning its string tables. */
@@ -139,10 +146,8 @@ export async function loadData(): Promise<DataBundle> {
 
   // Built once; the map layers then filter on the small numeric properties.
   // `t` (exposure tier) is rewritten in place by applyTiers when filters change.
-  const geojson: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
-  appendFeatures(geojson, incidents, 0)
   const loadedMinDay = meta.files ? meta.files[0].minDay : meta.minDay
-  return { meta, incidents, geojson, pointHex, hexCount, loadedMinDay }
+  return { meta, incidents, chunks: [buildChunk(incidents, 0)], pointHex, hexCount, loadedMinDay }
 }
 
 /**
@@ -160,7 +165,7 @@ export function ensureCoverage(bundle: DataBundle, minDayNeeded: number): Promis
         const chunk = await fetchJSON<Incidents>(f.name)
         const from = bundle.incidents.n
         appendChunk(bundle.incidents, chunk)
-        appendFeatures(bundle.geojson, bundle.incidents, from)
+        bundle.chunks.push(buildChunk(bundle.incidents, from))
         bundle.loadedMinDay = Math.min(bundle.loadedMinDay, f.minDay)
         appended = true
       }
@@ -274,10 +279,12 @@ export function applyTiers(bundle: DataBundle, cats: Set<number>, dayRange: [num
   nonzero.sort((a, b) => a - b)
   const q = (p: number) => (nonzero.length ? nonzero[Math.min(nonzero.length - 1, Math.floor(p * nonzero.length))] : 1)
   const T = EXPOSURE.quantiles.map(q)
-  for (let i = 0; i < inc.n; i++) {
-    const n = counts[pointHex[i]]
-    const t = n >= T[3] ? 4 : n >= T[2] ? 3 : n >= T[1] ? 2 : n >= T[0] ? 1 : 0
-    ;(bundle.geojson.features[i].properties as { t: number }).t = t
+  for (const chunk of bundle.chunks) {
+    for (const feat of chunk.features) {
+      const props = feat.properties as { i: number; t: number }
+      const n = counts[pointHex[props.i]]
+      props.t = n >= T[3] ? 4 : n >= T[2] ? 3 : n >= T[1] ? 2 : n >= T[0] ? 1 : 0
+    }
   }
 }
 
