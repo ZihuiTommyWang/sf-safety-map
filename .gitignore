@@ -1,5 +1,6 @@
 node_modules
 dist
+dist-nyc
 # Built by scripts/build-data*.mjs — the deploy workflow generates these fresh; never commit.
 public/data/
 public-nyc/data/
