@@ -423,9 +423,7 @@ export default function App() {
         {sheetContent}
       </Sheet>
 
-      {methodologyOpen && (
-        <MethodologyModal total={bundle.meta.total} onClose={() => setMethodologyOpen(false)} />
-      )}
+      <MethodologyModal open={methodologyOpen} onClose={() => setMethodologyOpen(false)} />
     </div>
   )
 }
