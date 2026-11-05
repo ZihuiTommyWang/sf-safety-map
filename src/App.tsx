@@ -398,7 +398,7 @@ export default function App() {
       />
 
       <div className="topbar">
-        <span className="wordmark">SF Safety Map</span>
+        <span className="wordmark">San Francisco Safety Map</span>
         <button className="count-chip" onClick={() => setMethodologyOpen(true)}>
           <b>{shownCount.toLocaleString()}</b> Incidents
           <span className="count-chip-info">ⓘ</span>
