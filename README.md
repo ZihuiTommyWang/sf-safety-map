@@ -1,6 +1,6 @@
 # SF Safety Map
 
-**Live: https://zihuitommywang.github.io/sf-safety-map/**
+**Live: https://citysafetymap.com/sf/**
 
 An interactive safety map of San Francisco built on real SFPD incident reports — free, open
 source, no ads, no tracking, no backend.
