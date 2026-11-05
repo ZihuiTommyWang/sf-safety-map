@@ -285,9 +285,10 @@ export function Sheet(p: SheetProps) {
             <span>Time window</span>
             <span className="panel-actions">
               {([
-                ['30 days', 29],
-                ['6 months', 182],
-                ['Year', p.meta.maxDay - p.meta.minDay],
+                ['30 Days', 29],
+                ['6 Months', 182],
+                ['1 Year', 364],
+                ['3 Years', p.meta.maxDay - p.meta.minDay],
               ] as const).map(([label, span]) => {
                 const from = Math.max(p.meta.minDay, p.meta.maxDay - span)
                 const active = p.dayRange[0] === from && p.dayRange[1] === p.meta.maxDay

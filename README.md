@@ -15,14 +15,14 @@ Inspired by safemap.io, but built to go further:
 | Shareable filter URLs | ❌ | ✅ |
 | Open methodology & source | ❌ | ✅ |
 | Ads | 🙃 | none |
-| Incidents plotted (12 mo) | ~10k | ~50k |
+| Incidents plotted | ~10k (12 mo) | ~150k (3 years) |
 | Admin noise (warrants, lost property, traffic stops) filtered out | ❌ | ✅ |
 
 ## How it works
 
 - **Data**: [DataSF Police Incident Reports](https://data.sf.gov/d/wg3w-h783) (2018–present
-  dataset), last 12 months, fetched by `scripts/build-data.mjs` into compact columnar JSON
-  (~1.7 MB, ~350 KB gzipped). The deploy workflow fetches fresh data from DataSF on every
+  dataset), last 3 years, fetched by `scripts/build-data.mjs` into compact columnar JSON
+  (~1 MB gzipped); the map defaults to showing the most recent year. The deploy workflow fetches fresh data from DataSF on every
   run (generated data is never committed), a nightly workflow triggers a redeploy, and the
   build fails loudly — keeping the previous deploy live — if DataSF is down, volumes look
   wrong, or SFPD's category vocabulary drifts. Reports with unrecorded times (logged by

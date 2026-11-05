@@ -10,7 +10,7 @@ export default function MethodologyModal({ total, onClose }: Props) {
         <button className="close-btn modal-close" onClick={onClose} aria-label="Close">✕</button>
         <h2>About this map</h2>
         <p>
-          Real SFPD incident reports from the last 12 months ({total.toLocaleString()}), via{' '}
+          Real SFPD incident reports from the last 3 years ({total.toLocaleString()}), via{' '}
           <a href="https://data.sf.gov/d/wg3w-h783" target="_blank" rel="noreferrer">
             DataSF
           </a>

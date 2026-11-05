@@ -15,7 +15,7 @@ import { DISPLAY_CATEGORIES, PRESET_GROUPS, KNOWN_DROPPED, MAPPED_RAW, mapIncide
 
 const ENDPOINT = 'https://data.sf.gov/resource/wg3w-h783.json'
 const PAGE_SIZE = 50000
-const MONTHS_BACK = 12
+const MONTHS_BACK = 36
 // Day indexes are stored relative to this date to keep the numbers small.
 export const DAY0_UTC = Date.UTC(2018, 0, 1)
 // Stored in the hour column when the report has no usable time (see below).
@@ -152,8 +152,8 @@ for (const [k, v] of unexpected) {
 }
 
 // Volume floors: a DataSF outage or partial response must not wipe the map.
-if (lat.length < 30000) {
-  throw new Error(`Suspiciously few incidents (${lat.length}, expected ~50k) — aborting.`)
+if (lat.length < 120000) {
+  throw new Error(`Suspiciously few incidents (${lat.length}, expected ~150k for 36 months) — aborting.`)
 }
 const counts = {}
 for (const c of cat) {
@@ -168,8 +168,12 @@ for (const core of ['assault', 'theft', 'drugs']) {
 
 // ---- Write output. ----
 
-const minDay = Math.min(...day)
-const maxDay = Math.max(...day)
+let minDay = Infinity
+let maxDay = -Infinity
+for (const d of day) {
+  if (d < minDay) minDay = d
+  if (d > maxDay) maxDay = d
+}
 
 await mkdir(new URL('../public/data/', import.meta.url), { recursive: true })
 

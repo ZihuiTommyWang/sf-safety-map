@@ -66,7 +66,9 @@ export default function App() {
       .then((b) => {
         const fromHash = parseHash(b)
         const cats = fromHash.cats ?? new Set(b.meta.categories.map((c) => c.id))
-        const days = fromHash.day ?? ([b.meta.minDay, b.meta.maxDay] as [number, number])
+        // Default view: the last year (the data itself reaches back 3 years).
+        const days =
+          fromHash.day ?? ([Math.max(b.meta.minDay, b.meta.maxDay - 364), b.meta.maxDay] as [number, number])
         const catIdx = new Set(
           [...cats].map((id) => b.meta.categories.findIndex((c) => c.id === id)).filter((i) => i >= 0),
         )
@@ -132,10 +134,11 @@ export default function App() {
   )
 
   const timeLabel = useMemo(() => {
-    if (!bundle) return 'Year'
+    if (!bundle) return '1 year'
     const { minDay, maxDay } = bundle.meta
     if (dayRange[1] === maxDay) {
-      if (dayRange[0] <= minDay) return 'Year'
+      if (dayRange[0] <= minDay) return '3 years'
+      if (dayRange[0] === maxDay - 364) return '1 year'
       if (dayRange[0] === maxDay - 29) return '30 days'
       if (dayRange[0] === maxDay - 182) return '6 months'
     }
@@ -277,7 +280,7 @@ export default function App() {
           <strong>
             {searchTarget.label.split(',').slice(0, 2).join(', ')}
             <span className="card-sub">
-              Within 300 m · {timeLabel === 'Year' ? 'Last 12 months' : timeLabel === 'custom' ? 'Custom dates' : `Last ${timeLabel}`}
+              Within 300 m · {timeLabel === 'custom' ? 'Custom dates' : `Last ${timeLabel}`}
             </span>
           </strong>
           <button className="close-btn" onClick={closeContent} aria-label="Close">
@@ -409,7 +412,9 @@ export default function App() {
         dayRange={dayRange}
         setDayRange={setDayRange}
         timeBadge={
-          timeLabel === 'Year' ? 'Year' : timeLabel === '30 days' ? '30 Days' : timeLabel === '6 months' ? '6 Months' : 'Custom'
+          timeLabel === 'custom'
+            ? 'Custom'
+            : timeLabel.replace(/\b[a-z]/g, (ch) => ch.toUpperCase())
         }
         onResult={openSpot}
         contentVersion={contentVersion}
