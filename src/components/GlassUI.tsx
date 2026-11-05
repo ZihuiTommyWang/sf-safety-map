@@ -35,6 +35,48 @@ function normKey(title: string): string {
     .trim()
 }
 
+function FeedbackForm() {
+  const [text, setText] = useState('')
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+
+  const send = async () => {
+    const message = text.trim()
+    if (!message || status === 'sending') return
+    setStatus('sending')
+    try {
+      const res = await fetch(FEEDBACK_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ message, _subject: 'SF Safety Map feedback' }),
+      })
+      if (!res.ok) throw new Error(String(res.status))
+      setStatus('sent')
+      setText('')
+    } catch {
+      setStatus('error')
+    }
+  }
+
+  if (status === 'sent') {
+    return <p className="sheet-note">Thanks — your feedback was sent.</p>
+  }
+  return (
+    <>
+      <textarea
+        className="fb-text"
+        rows={3}
+        placeholder="A bug, an idea, a request…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <button className="sheet-action" onClick={send} disabled={status === 'sending' || !text.trim()}>
+        {status === 'sending' ? 'Sending…' : 'Send'}
+      </button>
+      {status === 'error' && <p className="sheet-note error">Could not send — please try again.</p>}
+    </>
+  )
+}
+
 function SearchIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
@@ -44,7 +86,9 @@ function SearchIcon() {
   )
 }
 
-type Panel = 'none' | 'crimes' | 'time'
+type Panel = 'none' | 'crimes' | 'time' | 'feedback'
+
+const FEEDBACK_ENDPOINT = 'https://formsubmit.co/ajax/tommyw628@gmail.com'
 
 interface SheetProps {
   meta: Meta
@@ -222,6 +266,12 @@ export function Sheet(p: SheetProps) {
         <button className={panel === 'time' ? 'on' : ''} onClick={() => togglePanel('time')}>
           Time · <b>{p.timeBadge}</b>
         </button>
+        <button
+          className={`fb-btn ${panel === 'feedback' ? 'on' : ''}`}
+          onClick={() => togglePanel('feedback')}
+        >
+          Feedback
+        </button>
       </div>
 
       {searching && (
@@ -276,6 +326,12 @@ export function Sheet(p: SheetProps) {
               </label>
             ))}
           </div>
+        </div>
+      )}
+
+      {!searching && panel === 'feedback' && (
+        <div className="sheet-body">
+          <FeedbackForm />
         </div>
       )}
 

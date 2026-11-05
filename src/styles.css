@@ -116,6 +116,24 @@ body {
 }
 .sheet-filters button b { color: var(--amber); font-weight: 600; }
 .sheet-filters button.on { color: var(--text); }
+.fb-btn { margin-left: auto; }
+
+/* feedback */
+.fb-text {
+  width: 100%; resize: none;
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--r);
+  color: var(--text); font-size: 16px; font-family: inherit;
+  padding: 10px 12px; outline: none;
+}
+.fb-text:focus { border-color: rgba(255, 255, 255, 0.22); }
+.sheet-action {
+  display: block; width: 100%; margin-top: 10px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--surface-2); color: var(--text);
+  font-size: 13px; padding: 10px; cursor: pointer;
+}
+.sheet-action:hover:not(:disabled) { background: #262b33; }
+.sheet-action:disabled { opacity: 0.5; cursor: default; }
 .sheet-body {
   border-top: 1px solid var(--line);
   max-height: min(48vh, 420px); overflow-y: auto;
