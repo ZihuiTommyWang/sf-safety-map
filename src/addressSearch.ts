@@ -2,6 +2,7 @@
 // (public/data/addresses.json, built nightly from DataSF's EAS dataset).
 
 import { DATA_BASE } from './config'
+import { CITY } from './city'
 
 interface StreetEntry {
   s: string
@@ -9,6 +10,11 @@ interface StreetEntry {
   x: number[]
   y: number[]
   d: number[]
+  /**
+   * Queens-style hyphenated house numbers ("89-64" stored as 8964): digits
+   * after the hyphen, per address (0 = plain number). Absent on plain streets.
+   */
+  p?: number[]
 }
 
 export interface AddressIndex {
@@ -44,7 +50,15 @@ function normStreet(input: string): string {
     .replace(/[.,]/g, '')
     .split(/\s+/)
     .filter(Boolean)
-    .map((w) => SUFFIX[w] ?? w)
+    .map((w) => {
+      // NYC's registry writes numbered streets without ordinals ("5 AVE"),
+      // SF's with them ("1ST ST") — normalize the query to match.
+      if (CITY.id === 'nyc') {
+        const ord = w.match(/^(\d+)(ST|ND|RD|TH)$/)
+        if (ord) return ord[1]
+      }
+      return SUFFIX[w] ?? w
+    })
     .join(' ')
 }
 
@@ -60,9 +74,16 @@ export interface AddressSuggestion {
   exact: boolean
 }
 
+/** House number as displayed: re-inserts the Queens hyphen if the street has one. */
+function fmtNum(e: StreetEntry, i: number): string {
+  const s = String(e.n[i])
+  const cut = e.p?.[i] ?? 0
+  return cut > 0 && cut < s.length ? `${s.slice(0, s.length - cut)}-${s.slice(s.length - cut)}` : s
+}
+
 export function searchAddresses(idx: AddressIndex, query: string, limit = 5): AddressSuggestion[] {
-  const m = query.trim().match(/^(\d+)\s+(.+)$/)
-  const num = m ? Number(m[1]) : null
+  const m = query.trim().match(/^(\d+(?:-\d+)?)\s+(.+)$/)
+  const num = m ? Number(m[1].replace('-', '')) : null
   const frag = normStreet(m ? m[2] : query.trim())
   if (!frag) return []
 
@@ -78,8 +99,8 @@ export function searchAddresses(idx: AddressIndex, query: string, limit = 5): Ad
   const at = (e: StreetEntry, i: number, exact: boolean) => ({
     lng: e.x[i] / 1e5 + idx.x0,
     lat: e.y[i] / 1e5 + idx.y0,
-    title: titleCase(`${e.n[i]} ${e.s}`),
-    sub: idx.nh[e.d[i]] || 'San Francisco',
+    title: titleCase(`${fmtNum(e, i)} ${e.s}`),
+    sub: idx.nh[e.d[i]] || CITY.name,
     exact,
   })
 
@@ -88,7 +109,7 @@ export function searchAddresses(idx: AddressIndex, query: string, limit = 5): Ad
     if (num === null) {
       // Street-only query: offer the street itself (midpoint address).
       const mid = e.n.length >> 1
-      out.push({ ...at(e, mid, false), title: titleCase(e.s), sub: idx.nh[e.d[mid]] || 'San Francisco' })
+      out.push({ ...at(e, mid, false), title: titleCase(e.s), sub: idx.nh[e.d[mid]] || CITY.name })
       continue
     }
     // Binary search for the requested number.

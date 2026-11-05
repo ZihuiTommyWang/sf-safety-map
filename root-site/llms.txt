@@ -1,8 +1,9 @@
 # City Safety Map
 
 > Free, open-source city crime and safety maps built on real police incident
-> reports, updated nightly. No ads, no tracking, no accounts.
-> Currently covering San Francisco at https://citysafetymap.com/sf/
+> reports. No ads, no tracking, no accounts.
+> San Francisco: https://citysafetymap.com/sf/ (refreshed nightly)
+> New York City: https://citysafetymap.com/nyc/ (NYPD publishes quarterly)
 
 Source code: https://github.com/ZihuiTommyWang/sf-safety-map
 
@@ -24,11 +25,29 @@ Source code: https://github.com/ZihuiTommyWang/sf-safety-map
 - Address search covers every official San Francisco address (from the city's
   Enterprise Addressing System) plus places via OpenStreetMap.
 
+## New York City (citysafetymap.com/nyc)
+
+- Data sources: New York Police Department complaint reports, via NYC Open
+  Data's "NYPD Complaint Data Historic" (https://data.cityofnewyork.us/d/qgea-i56i)
+  and "NYPD Complaint Data Current (Year To Date)"
+  (https://data.cityofnewyork.us/d/5uac-w243). The NYPD publishes this data
+  quarterly, so the map lags the calendar by up to a few months; the About
+  panel shows the exact date the data runs through.
+- Coverage: the most recent 3 years (~1,000,000 incidents); the map defaults
+  to showing the most recent year.
+- Same filtering philosophy as San Francisco, adapted to NYPD's taxonomy: the
+  largest exclusions are Harassment (interpersonal texts/calls/disputes),
+  Theft of Services (fare evasion), traffic enforcement, fraud, and
+  shoplifting. The same 13 categories are used.
+- Address search covers every official NYC address (from the city's Address
+  Point registry, including Queens hyphenated numbers) plus places via
+  OpenStreetMap.
+
 ## Caveats
 
 - Reported incidents are not a perfect measure of risk: report density also
   reflects police presence, foot traffic, and reporting habits.
-- SFPD anonymizes incident locations to the block or intersection level.
+- SFPD and NYPD anonymize incident locations to the block or intersection level.
 
 ## Data files
 

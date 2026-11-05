@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import type { Meta } from '../data'
 import { dayToISO, isoToDay } from '../data'
 import { CATEGORY_COLORS, FALLBACK_DOT_COLOR } from '../config'
+import { CITY } from '../city'
 import type { AddressIndex } from '../addressSearch'
 import { loadAddressIndex, searchAddresses } from '../addressSearch'
 
@@ -20,7 +21,7 @@ interface Suggestion {
   sub: string
 }
 
-const SF_BBOX = { minLng: -122.55, maxLng: -122.33, minLat: 37.68, maxLat: 37.84 }
+const BBOX = CITY.bbox
 
 /** Dedupe key tolerant of "St" vs "Street" etc. between sources. */
 function normKey(title: string): string {
@@ -47,7 +48,7 @@ function FeedbackForm() {
       const res = await fetch(FEEDBACK_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ access_key: FEEDBACK_KEY, subject: 'SF Safety Map feedback', message }),
+        body: JSON.stringify({ access_key: FEEDBACK_KEY, subject: CITY.feedbackSubject, message }),
       })
       if (!res.ok) throw new Error(String(res.status))
       setStatus('sent')
@@ -161,9 +162,9 @@ export function Sheet(p: SheetProps) {
         const params = new URLSearchParams({
           q: query,
           limit: '6',
-          lat: '37.7749',
-          lon: '-122.4194',
-          bbox: `${SF_BBOX.minLng},${SF_BBOX.minLat},${SF_BBOX.maxLng},${SF_BBOX.maxLat}`,
+          lat: String(CITY.photonCenter[0]),
+          lon: String(CITY.photonCenter[1]),
+          bbox: `${BBOX.minLng},${BBOX.minLat},${BBOX.maxLng},${BBOX.maxLat}`,
         })
         const res = await fetch(`https://photon.komoot.io/api/?${params}`)
         const data = (await res.json()) as {
@@ -175,7 +176,7 @@ export function Sheet(p: SheetProps) {
         for (const f of data.features ?? []) {
           if (out.length >= 5) break
           const [lng, lat] = f.geometry.coordinates
-          if (lng < SF_BBOX.minLng || lng > SF_BBOX.maxLng || lat < SF_BBOX.minLat || lat > SF_BBOX.maxLat) continue
+          if (lng < BBOX.minLng || lng > BBOX.maxLng || lat < BBOX.minLat || lat > BBOX.maxLat) continue
           const pr = f.properties
           const title = pr.housenumber && pr.street ? `${pr.housenumber} ${pr.street}` : pr.name || pr.street
           if (!title) continue
@@ -188,7 +189,7 @@ export function Sheet(p: SheetProps) {
           out.push({ lng, lat, title, sub })
         }
         setSugs(out)
-        setError(out.length ? null : 'Nothing found in SF — try a street address or place name.')
+        setError(out.length ? null : `Nothing found in ${CITY.short} — try a street address or place name.`)
       } catch {
         if (seq === seqRef.current && !local.length) {
           setError('Search failed — check your connection and try again.')
@@ -239,7 +240,7 @@ export function Sheet(p: SheetProps) {
         <input
           ref={inputRef}
           value={q}
-          placeholder="Search any SF address or place…"
+          placeholder={CITY.searchPlaceholder}
           onChange={(e) => setQ(e.target.value)}
           onFocus={() => {
             setPanel('none')

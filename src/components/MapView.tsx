@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { MAP_STYLE, SF_CENTER, SF_BOUNDS, INITIAL_ZOOM, MIN_ZOOM, EXPOSURE } from '../config'
+import { MAP_STYLE, EXPOSURE } from '../config'
+import { CITY } from '../city'
 import type { DataBundle, FilterState } from '../data'
 import { toMapFilter } from '../data'
 import type { SearchTarget } from './GlassUI'
@@ -46,13 +47,13 @@ export default function MapView({ bundle, filter, tierVersion, searchTarget, onP
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: MAP_STYLE,
-      center: SF_CENTER,
-      zoom: INITIAL_ZOOM,
-      bounds: [[-122.525, 37.703], [-122.355, 37.837]],
+      center: CITY.center,
+      zoom: CITY.initialZoom,
+      bounds: CITY.fitBounds,
       fitBoundsOptions: { padding: 20 },
-      minZoom: MIN_ZOOM,
-      maxBounds: SF_BOUNDS,
-      attributionControl: { compact: true, customAttribution: 'Incident data: <a href="https://data.sf.gov/d/wg3w-h783">DataSF</a>' },
+      minZoom: CITY.minZoom,
+      maxBounds: CITY.maxBounds,
+      attributionControl: { compact: true, customAttribution: `Incident data: <a href="${CITY.attribution.url}">${CITY.attribution.label}</a>` },
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')

@@ -1,4 +1,5 @@
 import { DATA_BASE, EXPOSURE } from './config'
+import { CITY } from './city'
 
 export interface Category {
   id: string
@@ -22,6 +23,14 @@ export interface Meta {
   categories: Category[]
   presets: Record<string, PresetGroup>
   counts: Record<string, number>
+  /**
+   * Large cities split incidents into several files, newest first; the app
+   * loads the first eagerly and the rest only when the time filter needs them.
+   * Absent for cities small enough for a single incidents.json (SF).
+   */
+  files?: { name: string; minDay: number; maxDay: number }[]
+  /** Source publishes on a lag (NYPD: quarterly) — the date data runs through. */
+  dataThrough?: string
 }
 
 /** Sentinel stored in the hour column when the report's time was not recorded. */
@@ -47,6 +56,10 @@ export interface DataBundle {
   /** Hex id per incident, for exposure-tier density computation. */
   pointHex: Int32Array
   hexCount: number
+  /** Earliest day currently in memory (older chunks may still be on the server). */
+  loadedMinDay: number
+  /** In-flight older-chunk fetch, so concurrent requests coalesce. */
+  pending?: Promise<boolean>
 }
 
 const DAY0_UTC = Date.UTC(2018, 0, 1)
@@ -71,37 +84,102 @@ export function formatHour(h: number): string {
   return `${h - 12} PM`
 }
 
-export async function loadData(): Promise<DataBundle> {
-  const [meta, incidents] = await Promise.all([
-    fetch(`${DATA_BASE}meta.json`).then((r) => {
-      if (!r.ok) throw new Error(`meta.json: ${r.status}`)
-      return r.json() as Promise<Meta>
-    }),
-    fetch(`${DATA_BASE}incidents.json`).then((r) => {
-      if (!r.ok) throw new Error(`incidents.json: ${r.status}`)
-      return r.json() as Promise<Incidents>
-    }),
-  ])
+async function fetchJSON<T>(name: string): Promise<T> {
+  const r = await fetch(`${DATA_BASE}${name}`)
+  if (!r.ok) throw new Error(`${name}: ${r.status}`)
+  return r.json() as Promise<T>
+}
 
+/** Append features for incidents [from, inc.n) to the (mutable) geojson. */
+function appendFeatures(geojson: GeoJSON.FeatureCollection, inc: Incidents, from: number): void {
+  for (let i = from; i < inc.n; i++) {
+    geojson.features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [inc.lng[i], inc.lat[i]] },
+      properties: { i, c: inc.cat[i], d: inc.day[i], h: inc.hour[i], t: 0 },
+    })
+  }
+}
+
+/** Merge a chunk into the bundle's columnar store, re-interning its string tables. */
+function appendChunk(inc: Incidents, chunk: Incidents): void {
+  const descMap = chunk.descs.map((s) => {
+    let i = inc.descs.indexOf(s)
+    if (i === -1) {
+      i = inc.descs.length
+      inc.descs.push(s)
+    }
+    return i
+  })
+  const resMap = chunk.resolutions.map((s) => {
+    let i = inc.resolutions.indexOf(s)
+    if (i === -1) {
+      i = inc.resolutions.length
+      inc.resolutions.push(s)
+    }
+    return i
+  })
+  for (let i = 0; i < chunk.n; i++) {
+    inc.lat.push(chunk.lat[i])
+    inc.lng.push(chunk.lng[i])
+    inc.cat.push(chunk.cat[i])
+    inc.day.push(chunk.day[i])
+    inc.hour.push(chunk.hour[i])
+    inc.desc.push(descMap[chunk.desc[i]])
+    inc.res.push(resMap[chunk.res[i]])
+  }
+  inc.n += chunk.n
+}
+
+export async function loadData(): Promise<DataBundle> {
+  const meta = await fetchJSON<Meta>('meta.json')
+  const firstFile = meta.files ? meta.files[0].name : 'incidents.json'
+  const incidents = await fetchJSON<Incidents>(firstFile)
   const { pointHex, hexCount } = buildHexIndex(incidents)
 
   // Built once; the map layers then filter on the small numeric properties.
   // `t` (exposure tier) is rewritten in place by applyTiers when filters change.
-  const features: GeoJSON.Feature[] = new Array(incidents.n)
-  for (let i = 0; i < incidents.n; i++) {
-    features[i] = {
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [incidents.lng[i], incidents.lat[i]] },
-      properties: { i, c: incidents.cat[i], d: incidents.day[i], h: incidents.hour[i], t: 0 },
+  const geojson: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
+  appendFeatures(geojson, incidents, 0)
+  const loadedMinDay = meta.files ? meta.files[0].minDay : meta.minDay
+  return { meta, incidents, geojson, pointHex, hexCount, loadedMinDay }
+}
+
+/**
+ * Makes sure incidents back to `minDayNeeded` are in memory, fetching older
+ * chunks if necessary. Resolves true when new data was appended (the caller
+ * should re-apply tiers and re-render).
+ */
+export function ensureCoverage(bundle: DataBundle, minDayNeeded: number): Promise<boolean> {
+  if (!bundle.meta.files || minDayNeeded >= bundle.loadedMinDay) return Promise.resolve(false)
+  bundle.pending ??= (async () => {
+    try {
+      const toLoad = bundle.meta.files!.filter((f) => f.minDay < bundle.loadedMinDay)
+      let appended = false
+      for (const f of toLoad) {
+        const chunk = await fetchJSON<Incidents>(f.name)
+        const from = bundle.incidents.n
+        appendChunk(bundle.incidents, chunk)
+        appendFeatures(bundle.geojson, bundle.incidents, from)
+        bundle.loadedMinDay = Math.min(bundle.loadedMinDay, f.minDay)
+        appended = true
+      }
+      if (appended) {
+        const { pointHex, hexCount } = buildHexIndex(bundle.incidents)
+        bundle.pointHex = pointHex
+        bundle.hexCount = hexCount
+      }
+      return appended
+    } finally {
+      bundle.pending = undefined
     }
-  }
-  return { meta, incidents, geojson: { type: 'FeatureCollection', features }, pointHex, hexCount }
+  })()
+  return bundle.pending
 }
 
 // ---------- exposure tiers ----------
 
-const LAT0 = 37.768
-const LNG0 = -122.435
+const [LAT0, LNG0] = CITY.hexOrigin
 const MXm = 111320 * Math.cos((LAT0 * Math.PI) / 180)
 const MYm = 110540
 
@@ -138,13 +216,12 @@ export interface SpotStats {
   count: number
   /** Incident density here vs. the citywide average, under the same filters. */
   mult: number
-  /** What an average SF spot of the same radius would see, same filters. */
+  /** What an average spot of the same radius citywide would see, same filters. */
   typical: number
   /** The most recent incidents in the radius, newest first, with distance. */
   recent: { i: number; dist: number }[]
 }
 
-const SF_LAND_M2 = 121e6 // ~121 km² of land
 
 export function spotStats(
   bundle: DataBundle,
@@ -168,7 +245,7 @@ export function spotStats(
   }
   local.sort((a, b) => inc.day[b.i] - inc.day[a.i])
   const area = Math.PI * r2
-  const typical = (countFiltered(inc, f) / SF_LAND_M2) * area
+  const typical = (countFiltered(inc, f) / CITY.landM2) * area
   return {
     count: local.length,
     mult: typical > 0 ? local.length / typical : 0,

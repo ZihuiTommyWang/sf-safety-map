@@ -1,6 +1,7 @@
 node_modules
 dist
-# Built by scripts/build-data.mjs — the deploy workflow generates it fresh; never commit it.
+# Built by scripts/build-data*.mjs — the deploy workflow generates these fresh; never commit.
 public/data/
+public-nyc/data/
 *.local
 .DS_Store

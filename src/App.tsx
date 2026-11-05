@@ -4,8 +4,9 @@ import { Sheet } from './components/GlassUI'
 import type { SearchTarget } from './components/GlassUI'
 import MethodologyModal from './components/MethodologyModal'
 import type { DataBundle, FilterState } from './data'
-import { loadData, countFiltered, applyTiers, spotStats, dayToISO, isoToDay, formatHour } from './data'
+import { loadData, ensureCoverage, countFiltered, applyTiers, spotStats, dayToISO, isoToDay, formatHour } from './data'
 import { CATEGORY_COLORS, FALLBACK_DOT_COLOR } from './config'
+import { CITY } from './city'
 
 interface PickedIncident {
   catId: string
@@ -18,8 +19,12 @@ interface PickedIncident {
   day: number
 }
 
-function relDayLabel(maxDay: number, d: number): string {
-  const n = maxDay - d
+// Relative to the actual calendar today (not the data's last day), so a city
+// whose source publishes on a lag never claims a months-old report is "Today".
+const TODAY_DAY = Math.floor((Date.now() - Date.UTC(2018, 0, 1)) / 86400000)
+
+function relDayLabel(_maxDay: number, d: number): string {
+  const n = TODAY_DAY - d
   return n <= 0 ? 'Today' : n === 1 ? 'Yesterday' : n < 60 ? `${n} days ago` : dayToISO(d)
 }
 
@@ -60,6 +65,8 @@ export default function App() {
   const [picked, setPicked] = useState<PickedIncident[] | null>(null)
   const [tierVersion, setTierVersion] = useState(0)
   const [contentVersion, setContentVersion] = useState(0)
+  /** Bumped when older incident chunks finish loading (counts/spots re-derive). */
+  const [dataVersion, setDataVersion] = useState(0)
 
   useEffect(() => {
     loadData()
@@ -93,6 +100,22 @@ export default function App() {
       history.replaceState(null, '', `#${params}`)
     }, 300)
   }, [bundle, catSel, dayRange])
+
+  // Widening the time window may need older incident chunks (large cities
+  // split their data; the initial load covers only the default view).
+  useEffect(() => {
+    if (!bundle || dayRange[0] >= bundle.loadedMinDay) return
+    ensureCoverage(bundle, dayRange[0]).then((changed) => {
+      if (!changed) return
+      const catIdx = new Set(
+        [...catSel].map((id) => bundle.meta.categories.findIndex((c) => c.id === id)).filter((i) => i >= 0),
+      )
+      applyTiers(bundle, catIdx, dayRange)
+      setTierVersion((v) => v + 1)
+      setDataVersion((v) => v + 1)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bundle, dayRange])
 
   // Exposure tiers follow the category/date filters (debounced).
   const tierTimer = useRef<number>(undefined)
@@ -130,7 +153,8 @@ export default function App() {
 
   const shownCount = useMemo(
     () => (bundle ? countFiltered(bundle.incidents, filter) : 0),
-    [bundle, filter],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bundle, filter, dataVersion],
   )
 
   const timeLabel = useMemo(() => {
@@ -202,7 +226,8 @@ export default function App() {
   // Live stats for the open spot; re-derives when filters change.
   const spot = useMemo(
     () => (bundle && searchTarget ? spotStats(bundle, filter, searchTarget.lng, searchTarget.lat) : null),
-    [bundle, filter, searchTarget],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bundle, filter, searchTarget, dataVersion],
   )
 
   const spotRecent = useMemo(() => {
@@ -268,7 +293,7 @@ export default function App() {
     return (
       <div className="loading-screen">
         <div className="spinner" />
-        <p>Loading SF incidents…</p>
+        <p>{CITY.loadingLabel}</p>
       </div>
     )
   }
@@ -299,7 +324,7 @@ export default function App() {
             <span className="cmp-val">{spot.count.toLocaleString()}</span>
           </div>
           <div className="cmp-row">
-            <span className="cmp-name">Typical SF</span>
+            <span className="cmp-name">{CITY.typicalLabel}</span>
             <div className="cmp-track">
               <i
                 className="base"
@@ -330,7 +355,7 @@ export default function App() {
                   <b>{it.longDate}</b>
                   <span>Time</span>
                   <b>{it.hour}</b>
-                  <span>Outcome</span>
+                  <span>{CITY.outcomeLabel}</span>
                   <b>{it.outcome}</b>
                   <span>Distance</span>
                   <b>{it.dist} m from this spot</b>
@@ -374,7 +399,7 @@ export default function App() {
                   <b>{it.longDate}</b>
                   <span>Time</span>
                   <b>{it.hour}</b>
-                  <span>Outcome</span>
+                  <span>{CITY.outcomeLabel}</span>
                   <b>{it.outcome}</b>
                 </div>
               )}
@@ -398,7 +423,7 @@ export default function App() {
       />
 
       <div className="topbar">
-        <span className="wordmark">San Francisco Safety Map</span>
+        <span className="wordmark">{CITY.title}</span>
         <button className="count-chip" onClick={() => setMethodologyOpen(true)}>
           <b>{shownCount.toLocaleString()}</b> Incidents
           <span className="count-chip-info">ⓘ</span>
@@ -423,7 +448,11 @@ export default function App() {
         {sheetContent}
       </Sheet>
 
-      <MethodologyModal open={methodologyOpen} onClose={() => setMethodologyOpen(false)} />
+      <MethodologyModal
+        open={methodologyOpen}
+        onClose={() => setMethodologyOpen(false)}
+        dataThrough={bundle.meta.dataThrough}
+      />
     </div>
   )
 }
