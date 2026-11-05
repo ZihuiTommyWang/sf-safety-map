@@ -17,12 +17,15 @@ const DIRECT = new Map(
     'felony assault': 'assault',
     'assault 3 & related offenses': 'assault',
     'kidnapping & related offenses': 'assault',
+    'kidnapping and related offenses': 'assault',
+    kidnapping: 'assault',
     'offenses against the person': 'assault', // mostly reckless endangerment 2
     'murder & non-negl. manslaughter': 'homicide',
     'homicide-negligent,unclassifie': 'homicide',
     'homicide-negligent-vehicle': 'homicide',
     robbery: 'robbery',
     'sex crimes': 'sex-offenses',
+    'felony sex crimes': 'sex-offenses',
     rape: 'sex-offenses',
     'dangerous weapons': 'weapons',
     'unlawful poss. weap. on school': 'weapons',
@@ -39,6 +42,9 @@ const DIRECT = new Map(
     jostling: 'street-disorder', // pickpocketing setups
     'fraudulent accosting': 'street-disorder', // street scams (shell games etc.)
     'prostitution & related offenses': 'street-disorder',
+    loitering: 'street-disorder',
+    'loitering for drug purposes': 'drugs',
+    'loitering/deviate sex': 'street-disorder',
   }),
 )
 
@@ -54,6 +60,8 @@ export const KNOWN_DROPPED = new Set([
   'forgery',
   'offenses involving fraud',
   'other offenses related to theft', // theft of services: fare evasion etc.
+  'other offenses related to thef', // historic dataset truncation
+  'theft of services',
   'possession of stolen property',
   'offenses against public administration',
   'offenses against public admini',
@@ -66,13 +74,21 @@ export const KNOWN_DROPPED = new Set([
   'loitering/gambling (cards, dic',
   'alcoholic beverage control law',
   'child abandonment/non support 1',
+  'child abandonment/non support',
   'offenses related to children',
+  'endan welfare incomp',
   'escape 3',
   'anticipatory offenses',
   'new york city health code',
   'fortune telling',
   'disruption of a religious serv',
   'under the influence of drugs',
+  'nys laws-unclassified felony',
+  'nys laws-unclassified violation',
+  'agriculture & mrkts law-unclassified',
+  'administrative codes',
+  'offenses against marriage uncl',
+  'abortion',
   '(null)',
 ])
 

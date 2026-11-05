@@ -12,7 +12,7 @@
 //
 // Usage: node scripts/build-data-nyc.mjs
 
-import { writeFile, mkdir } from 'node:fs/promises'
+import { writeFile, mkdir, readFile } from 'node:fs/promises'
 import { DISPLAY_CATEGORIES, KNOWN_DROPPED, MAPPED_RAW, mapIncidentNYC } from './categories-nyc.mjs'
 
 const HISTORIC = 'https://data.cityofnewyork.us/resource/qgea-i56i.json'
@@ -158,25 +158,39 @@ function ingest(row) {
 // (the server sorts the whole filtered set per page), so fetch one calendar
 // month per request instead: each window fits comfortably in a single
 // response, needs no ordering, and a failure retries just that month.
+// Raw month responses are cached on disk (gitignored) so a rerun after a
+// mapping tweak doesn't refetch ~45 minutes of data. Delete .cache-nyc/ to
+// force a fresh pull.
+const CACHE = new URL('../.cache-nyc/', import.meta.url)
+await mkdir(CACHE, { recursive: true })
+
 async function fetchAll(endpoint, fromISO, toISO, label) {
   let fetched = 0
   const start = new Date(`${fromISO.slice(0, 7)}-01T00:00:00Z`)
   for (let m = new Date(start); m.toISOString().slice(0, 10) <= toISO; m.setUTCMonth(m.getUTCMonth() + 1)) {
+    const month = m.toISOString().slice(0, 7)
     const next = new Date(m)
     next.setUTCMonth(next.getUTCMonth() + 1)
-    const params = new URLSearchParams({
-      $select: SELECT,
-      $where:
-        `cmplnt_fr_dt >= '${m.toISOString().slice(0, 10)}T00:00:00' AND ` +
-        `cmplnt_fr_dt < '${next.toISOString().slice(0, 10)}T00:00:00' AND latitude IS NOT NULL`,
-      $limit: String(WINDOW_LIMIT),
-    })
-    const rows = await fetchJSON(`${endpoint}?${params}`)
+    const cacheFile = new URL(`${label}-${month}.json`, CACHE)
+    let rows
+    try {
+      rows = JSON.parse(await readFile(cacheFile, 'utf8'))
+    } catch {
+      const params = new URLSearchParams({
+        $select: SELECT,
+        $where:
+          `cmplnt_fr_dt >= '${m.toISOString().slice(0, 10)}T00:00:00' AND ` +
+          `cmplnt_fr_dt < '${next.toISOString().slice(0, 10)}T00:00:00' AND latitude IS NOT NULL`,
+        $limit: String(WINDOW_LIMIT),
+      })
+      rows = await fetchJSON(`${endpoint}?${params}`)
+      await writeFile(cacheFile, JSON.stringify(rows))
+    }
     if (rows.length >= WINDOW_LIMIT) {
-      throw new Error(`${label} ${m.toISOString().slice(0, 7)}: window overflowed ${WINDOW_LIMIT} rows`)
+      throw new Error(`${label} ${month}: window overflowed ${WINDOW_LIMIT} rows`)
     }
     fetched += rows.length
-    process.stderr.write(`${label} ${m.toISOString().slice(0, 7)}: ${rows.length} rows (${fetched} total)\n`)
+    process.stderr.write(`${label} ${month}: ${rows.length} rows (${fetched} total)\n`)
     for (const row of rows) ingest(row)
   }
 }
