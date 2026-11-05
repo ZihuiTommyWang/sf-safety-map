@@ -1,13 +1,12 @@
-# SF Safety Map
+# City Safety Map
 
-> A free, open-source map of San Francisco crime and safety. Search any SF address
-> and see real SFPD incident reports nearby — filterable by crime type and time
-> window, updated nightly. No ads, no tracking, no accounts.
+> Free, open-source city crime and safety maps built on real police incident
+> reports, updated nightly. No ads, no tracking, no accounts.
+> Currently covering San Francisco at https://citysafetymap.com/sf/
 
-Live site: https://zihuitommywang.github.io/sf-safety-map/
 Source code: https://github.com/ZihuiTommyWang/sf-safety-map
 
-## Key facts
+## San Francisco (citysafetymap.com/sf)
 
 - Data source: San Francisco Police Department incident reports, via DataSF's
   public dataset "Police Department Incident Reports: 2018 to Present"
@@ -33,5 +32,5 @@ Source code: https://github.com/ZihuiTommyWang/sf-safety-map
 
 ## Data files
 
-- Incidents (columnar JSON): https://zihuitommywang.github.io/sf-safety-map/data/incidents.json
-- Metadata and category definitions: https://zihuitommywang.github.io/sf-safety-map/data/meta.json
+- Incidents (columnar JSON): https://citysafetymap.com/sf/data/incidents.json
+- Metadata and category definitions: https://citysafetymap.com/sf/data/meta.json

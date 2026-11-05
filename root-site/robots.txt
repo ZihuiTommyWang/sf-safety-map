@@ -1,4 +1,4 @@
-# SF Safety Map — https://zihuitommywang.github.io/sf-safety-map/
+# City Safety Map — https://citysafetymap.com/
 # All crawlers welcome, AI crawlers explicitly included.
 
 User-agent: *
@@ -22,4 +22,4 @@ Allow: /
 User-agent: CCBot
 Allow: /
 
-Sitemap: https://zihuitommywang.github.io/sf-safety-map/sitemap.xml
+Sitemap: https://citysafetymap.com/sitemap.xml

@@ -35,9 +35,14 @@ jobs:
         env:
           SODA_APP_TOKEN: ${{ secrets.SODA_APP_TOKEN }}
       - run: npm run build
+      - name: Assemble site (app at /sf/, root files from root-site/)
+        run: |
+          mkdir -p site/sf
+          cp -r dist/. site/sf/
+          cp -r root-site/. site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site
       - id: deployment
         uses: actions/deploy-pages@v4
