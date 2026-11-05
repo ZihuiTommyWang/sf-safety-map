@@ -17,7 +17,7 @@ import { DISPLAY_CATEGORIES, KNOWN_DROPPED, MAPPED_RAW, mapIncidentNYC } from '.
 
 const HISTORIC = 'https://data.cityofnewyork.us/resource/qgea-i56i.json'
 const YTD = 'https://data.cityofnewyork.us/resource/5uac-w243.json'
-const PAGE_SIZE = 50000
+const WINDOW_LIMIT = 300000
 const MONTHS_BACK = 36
 export const DAY0_UTC = Date.UTC(2018, 0, 1)
 const HOUR_UNKNOWN = 24
@@ -154,39 +154,39 @@ function ingest(row) {
   res.push(intern(SEVERITY[row.law_cat_cd] || 'Unknown', resIndex, resolutions))
 }
 
-async function fetchAll(endpoint, where, label) {
-  let offset = 0
+// Deep $offset paging with $order=:id times out on these 10M-row datasets
+// (the server sorts the whole filtered set per page), so fetch one calendar
+// month per request instead: each window fits comfortably in a single
+// response, needs no ordering, and a failure retries just that month.
+async function fetchAll(endpoint, fromISO, toISO, label) {
   let fetched = 0
-  for (;;) {
+  const start = new Date(`${fromISO.slice(0, 7)}-01T00:00:00Z`)
+  for (let m = new Date(start); m.toISOString().slice(0, 10) <= toISO; m.setUTCMonth(m.getUTCMonth() + 1)) {
+    const next = new Date(m)
+    next.setUTCMonth(next.getUTCMonth() + 1)
     const params = new URLSearchParams({
       $select: SELECT,
-      $where: where,
-      // :id is the only pagination order that is stable across requests.
-      $order: ':id',
-      $limit: String(PAGE_SIZE),
-      $offset: String(offset),
+      $where:
+        `cmplnt_fr_dt >= '${m.toISOString().slice(0, 10)}T00:00:00' AND ` +
+        `cmplnt_fr_dt < '${next.toISOString().slice(0, 10)}T00:00:00' AND latitude IS NOT NULL`,
+      $limit: String(WINDOW_LIMIT),
     })
     const rows = await fetchJSON(`${endpoint}?${params}`)
+    if (rows.length >= WINDOW_LIMIT) {
+      throw new Error(`${label} ${m.toISOString().slice(0, 7)}: window overflowed ${WINDOW_LIMIT} rows`)
+    }
     fetched += rows.length
-    process.stderr.write(`${label}: fetched ${fetched} rows...\n`)
+    process.stderr.write(`${label} ${m.toISOString().slice(0, 7)}: ${rows.length} rows (${fetched} total)\n`)
     for (const row of rows) ingest(row)
-    if (rows.length < PAGE_SIZE) break
-    offset += PAGE_SIZE
   }
 }
 
 // Historic covers through the last full year; YTD covers the current year.
 // The windows overlap defensively — cmplnt_num dedup keeps one copy.
-await fetchAll(
-  HISTORIC,
-  `cmplnt_fr_dt >= '${cutoffStr}T00:00:00' AND latitude IS NOT NULL`,
-  'historic',
-)
-await fetchAll(
-  YTD,
-  `cmplnt_fr_dt >= '${cutoffStr}T00:00:00' AND cmplnt_fr_dt <= '${dataThrough}T23:59:59' AND latitude IS NOT NULL`,
-  'ytd',
-)
+const lastFullYearEnd = `${Number(dataThrough.slice(0, 4)) - 1}-12-31`
+await fetchAll(HISTORIC, cutoffStr, lastFullYearEnd < cutoffStr ? cutoffStr : lastFullYearEnd, 'historic')
+const ytdStart = `${dataThrough.slice(0, 4)}-01-01`
+await fetchAll(YTD, ytdStart < cutoffStr ? cutoffStr : ytdStart, dataThrough, 'ytd')
 
 // ---- Guards: fail loudly rather than publish bad data. ----
 
