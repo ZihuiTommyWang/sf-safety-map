@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Home page designs</title>
+<style>
+  :root { color-scheme: dark; --bg:#101216; --surface:#191c21; --line:rgba(255,255,255,.08);
+    --text:#eceef0; --dim:#8e949b; --amber:#ffb84d; }
+  body { margin:0; background:#000; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+  section { height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:var(--bg); color:var(--text); border-bottom:4px solid #000; box-sizing:border-box; padding:20px; }
+  .tag { position:absolute; top:12px; left:16px; color:var(--dim); font-size:12px; letter-spacing:2px; }
+  section { position:relative; }
+
+  /* A — Pure text */
+  .a h1 { font-size:28px; letter-spacing:-.4px; margin:0 0 6px; }
+  .a .sub { color:var(--dim); font-size:14px; margin:0 0 36px; }
+  .a .links { display:flex; flex-direction:column; gap:18px; text-align:center; }
+  .a a { color:var(--text); text-decoration:none; font-size:20px; }
+  .a a span { color:var(--amber); }
+  .a a:hover span { text-decoration:underline; }
+  .a .soon { margin-top:36px; color:var(--dim); font-size:13px; }
+
+  /* B — Cards */
+  .b h1 { font-size:26px; letter-spacing:-.4px; margin:0 0 4px; }
+  .b .sub { color:var(--dim); font-size:14px; margin:0 0 28px; }
+  .b .cards { display:flex; flex-direction:column; gap:12px; width:min(380px,100%); }
+  .b a.card { display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--line);
+    border-radius:10px; padding:16px 18px; color:var(--text); text-decoration:none; }
+  .b a.card:hover { border-color:var(--amber); }
+  .b .dot { width:10px; height:10px; border-radius:50%; background:var(--amber);
+    box-shadow:0 0 12px 3px rgba(255,184,77,.45); flex:none; }
+  .b .card b { display:block; font-size:16px; }
+  .b .card span { color:var(--dim); font-size:12.5px; }
+  .b .ghost { display:flex; align-items:center; gap:14px; border:1px dashed var(--line); border-radius:10px;
+    padding:16px 18px; color:var(--dim); font-size:14px; }
+  .b .ghost i { width:10px; height:10px; border-radius:50%; border:1px dashed var(--dim); flex:none; font-style:normal; }
+
+  /* C — Night sky */
+  .c { overflow:hidden; }
+  .c .stars { position:absolute; inset:0; pointer-events:none; }
+  .c .stars i { position:absolute; border-radius:50%; background:var(--amber); opacity:.5; }
+  .c .inner { position:relative; text-align:center; }
+  .c h1 { font-size:34px; letter-spacing:-.6px; margin:0 0 8px; }
+  .c .sub { color:var(--dim); font-size:15px; margin:0 0 40px; }
+  .c .btns { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .c a { background:var(--amber); color:#101216; font-weight:600; text-decoration:none;
+    padding:13px 26px; border-radius:10px; font-size:15px; }
+  .c a.alt { background:transparent; color:var(--amber); border:1px solid var(--amber); }
+  .c .soon { margin-top:40px; color:var(--dim); font-size:13px; letter-spacing:.3px; }
+</style>
+</head>
+<body>
+
+<section class="a" id="a">
+  <span class="tag">DESIGN A</span>
+  <h1>City Safety Map</h1>
+  <p class="sub">Real police reports. Free, no ads, no tracking.</p>
+  <div class="links">
+    <a href="#"><span>San Francisco</span> →</a>
+    <a href="#"><span>New York City</span> →</a>
+  </div>
+  <p class="soon">More cities coming soon.</p>
+</section>
+
+<section class="b" id="b">
+  <span class="tag">DESIGN B</span>
+  <h1>City Safety Map</h1>
+  <p class="sub">Real police reports. Free, no ads, no tracking.</p>
+  <div class="cards">
+    <a class="card" href="#"><span class="dot"></span><span><b>San Francisco</b><span>150,000+ incidents · updated nightly</span></span></a>
+    <a class="card" href="#"><span class="dot"></span><span><b>New York City</b><span>950,000+ incidents · updated quarterly</span></span></a>
+    <div class="ghost"><i></i>More cities coming soon</div>
+  </div>
+</section>
+
+<section class="c" id="c">
+  <span class="tag">DESIGN C</span>
+  <div class="stars" id="stars"></div>
+  <div class="inner">
+    <h1>City Safety Map</h1>
+    <p class="sub">Every dot is a real police report.</p>
+    <div class="btns">
+      <a href="#">San Francisco</a>
+      <a href="#" class="alt">New York City</a>
+    </div>
+    <p class="soon">More cities coming soon.</p>
+  </div>
+</section>
+
+<script>
+  const stars = document.getElementById('stars');
+  let html = '';
+  for (let i = 0; i < 140; i++) {
+    const s = (Math.random() * 2.2 + 0.8).toFixed(1);
+    html += `<i style="left:${(Math.random()*100).toFixed(1)}%;top:${(Math.random()*100).toFixed(1)}%;width:${s}px;height:${s}px;opacity:${(Math.random()*.5+.15).toFixed(2)}"></i>`;
+  }
+  stars.innerHTML = html;
+</script>
+</body>
+</html>

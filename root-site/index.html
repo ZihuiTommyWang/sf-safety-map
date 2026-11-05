@@ -6,38 +6,54 @@
     <title>City Safety Map</title>
     <meta
       name="description"
-      content="Free, open-source city crime and safety maps built on real police incident reports. San Francisco and New York City."
+      content="Free, open-source city crime and safety maps built on real police incident reports. San Francisco and New York City, with more cities coming soon."
     />
     <link rel="canonical" href="https://citysafetymap.com/" />
     <meta name="theme-color" content="#101216" />
     <link rel="icon" type="image/svg+xml" href="/sf/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="City Safety Map" />
+    <meta property="og:title" content="City Safety Map" />
+    <meta property="og:description" content="Every dot is a real police report. Free crime maps of San Francisco and New York City." />
+    <meta property="og:url" content="https://citysafetymap.com/" />
+    <meta property="og:image" content="https://citysafetymap.com/sf/og.png" />
     <style>
       :root { color-scheme: dark; }
-      body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
-        justify-content: center; gap: 10px; padding: 20px; box-sizing: border-box;
-        background: #101216; color: #eceef0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-      h1 { font-size: 24px; margin: 0 0 2px; letter-spacing: -0.3px; }
-      p.sub { margin: 0 0 18px; color: #8e949b; font-size: 14px; text-align: center; }
-      a.city { display: block; width: min(360px, 100%); box-sizing: border-box; background: #191c21;
-        border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 16px 18px;
-        color: #eceef0; text-decoration: none; }
-      a.city:hover { border-color: #ffb84d; }
-      a.city b { display: block; font-size: 16px; }
-      a.city span { color: #8e949b; font-size: 12.5px; }
-      footer { margin-top: 22px; color: #8e949b; font-size: 12px; }
+      html, body { height: 100%; }
+      body { margin: 0; background: #101216; color: #eceef0; overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        display: flex; align-items: center; justify-content: center; }
+      .stars { position: fixed; inset: 0; pointer-events: none; }
+      .stars i { position: absolute; border-radius: 50%; background: #ffb84d; }
+      .inner { position: relative; text-align: center; padding: 20px; }
+      h1 { font-size: 34px; letter-spacing: -0.6px; margin: 0 0 8px; }
+      .sub { color: #8e949b; font-size: 15px; margin: 0 0 40px; }
+      .btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+      .btns a { background: #ffb84d; color: #101216; font-weight: 600; text-decoration: none;
+        padding: 13px 26px; border-radius: 10px; font-size: 15px; }
+      .btns a.alt { background: transparent; color: #ffb84d; border: 1px solid #ffb84d; }
+      .soon { margin-top: 40px; color: #8e949b; font-size: 13px; letter-spacing: 0.3px; }
     </style>
   </head>
   <body>
-    <h1>City Safety Map</h1>
-    <p class="sub">Free, open-source crime maps built on real police reports.</p>
-    <a class="city" href="/sf/">
-      <b>San Francisco</b>
-      <span>SFPD incident reports via DataSF · refreshed nightly</span>
-    </a>
-    <a class="city" href="/nyc/">
-      <b>New York City</b>
-      <span>NYPD incident reports via NYC Open Data · published quarterly</span>
-    </a>
-    <footer>No ads, no tracking.</footer>
+    <div class="stars" id="stars"></div>
+    <main class="inner">
+      <h1>City Safety Map</h1>
+      <p class="sub">Every dot is a real police report.</p>
+      <nav class="btns">
+        <a href="/sf/">San Francisco</a>
+        <a href="/nyc/" class="alt">New York City</a>
+      </nav>
+      <p class="soon">More cities coming soon.</p>
+    </main>
+    <script>
+      var html = '';
+      for (var i = 0; i < 140; i++) {
+        var s = (Math.random() * 2.2 + 0.8).toFixed(1);
+        html += '<i style="left:' + (Math.random() * 100).toFixed(1) + '%;top:' + (Math.random() * 100).toFixed(1) +
+          '%;width:' + s + 'px;height:' + s + 'px;opacity:' + (Math.random() * 0.5 + 0.15).toFixed(2) + '"></i>';
+      }
+      document.getElementById('stars').innerHTML = html;
+    </script>
   </body>
 </html>
