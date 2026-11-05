@@ -6,8 +6,65 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
     />
-    <meta name="description" content="Interactive San Francisco safety map — explore incident data by neighborhood, category, and time of day. Free, open source, no ads." />
-    <title>SF Safety Map</title>
+    <title>SF Safety Map — San Francisco Crime Map, Updated Nightly</title>
+    <meta
+      name="description"
+      content="A free, open-source San Francisco crime and safety map. Search any SF address and see real SFPD incident reports nearby — 150,000+ incidents from the last 3 years, filterable by crime type, updated nightly. No ads, no tracking."
+    />
+    <link rel="canonical" href="https://zihuitommywang.github.io/sf-safety-map/" />
+    <meta name="theme-color" content="#101216" />
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SF Safety Map" />
+    <meta property="og:title" content="SF Safety Map — San Francisco Crime Map" />
+    <meta
+      property="og:description"
+      content="Search any SF address and see real SFPD incident reports nearby. 150,000+ incidents, updated nightly. Free, open source, no ads."
+    />
+    <meta property="og:url" content="https://zihuitommywang.github.io/sf-safety-map/" />
+    <meta property="og:image" content="https://zihuitommywang.github.io/sf-safety-map/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SF Safety Map — San Francisco Crime Map" />
+    <meta
+      name="twitter:description"
+      content="Search any SF address and see real SFPD incident reports nearby. Updated nightly. Free, no ads."
+    />
+    <meta name="twitter:image" content="https://zihuitommywang.github.io/sf-safety-map/og.png" />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebApplication",
+          "name": "SF Safety Map",
+          "url": "https://zihuitommywang.github.io/sf-safety-map/",
+          "description": "A free, open-source San Francisco crime and safety map. Search any SF address and see real SFPD incident reports nearby, filterable by crime type and time window, updated nightly.",
+          "applicationCategory": "Map",
+          "operatingSystem": "Any",
+          "isAccessibleForFree": true,
+          "creator": { "@type": "Person", "name": "Tommy Wang" }
+        },
+        {
+          "@type": "Dataset",
+          "name": "San Francisco Safety Incidents (processed)",
+          "description": "SFPD incident reports from the last 3 years, filtered to place-based safety incidents and grouped into 13 categories. Derived nightly from DataSF's Police Department Incident Reports dataset.",
+          "url": "https://zihuitommywang.github.io/sf-safety-map/",
+          "isBasedOn": "https://data.sf.gov/d/wg3w-h783",
+          "license": "https://opendatacommons.org/licenses/pddl/1-0/",
+          "spatialCoverage": "San Francisco, California",
+          "distribution": {
+            "@type": "DataDownload",
+            "encodingFormat": "application/json",
+            "contentUrl": "https://zihuitommywang.github.io/sf-safety-map/data/incidents.json"
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

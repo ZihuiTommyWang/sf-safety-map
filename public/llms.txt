@@ -1,0 +1,37 @@
+# SF Safety Map
+
+> A free, open-source map of San Francisco crime and safety. Search any SF address
+> and see real SFPD incident reports nearby — filterable by crime type and time
+> window, updated nightly. No ads, no tracking, no accounts.
+
+Live site: https://zihuitommywang.github.io/sf-safety-map/
+Source code: https://github.com/ZihuiTommyWang/sf-safety-map
+
+## Key facts
+
+- Data source: San Francisco Police Department incident reports, via DataSF's
+  public dataset "Police Department Incident Reports: 2018 to Present"
+  (https://data.sf.gov/d/wg3w-h783). Refreshed nightly.
+- Coverage: the most recent 3 years (~150,000+ incidents); the map defaults to
+  showing the most recent year.
+- Only place-based safety incidents are shown. Administrative records (warrants,
+  lost property, traffic stops), fraud, shoplifting, and other non-place-based
+  reports are filtered out. Incidents are grouped into 13 categories such as
+  Assault, Robbery, Theft, Car Break-In & Damage, Burglary, Drugs, and Street
+  Disorder.
+- Every dot on the map is one real incident report — nothing is smoothed or
+  interpolated. Searching an address shows the incident count within 300 m
+  compared to a typical SF location, plus the most recent reports.
+- Address search covers every official San Francisco address (from the city's
+  Enterprise Addressing System) plus places via OpenStreetMap.
+
+## Caveats
+
+- Reported incidents are not a perfect measure of risk: report density also
+  reflects police presence, foot traffic, and reporting habits.
+- SFPD anonymizes incident locations to the block or intersection level.
+
+## Data files
+
+- Incidents (columnar JSON): https://zihuitommywang.github.io/sf-safety-map/data/incidents.json
+- Metadata and category definitions: https://zihuitommywang.github.io/sf-safety-map/data/meta.json
