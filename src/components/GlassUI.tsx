@@ -47,7 +47,7 @@ function FeedbackForm() {
       const res = await fetch(FEEDBACK_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ message, _subject: 'SF Safety Map feedback' }),
+        body: JSON.stringify({ access_key: FEEDBACK_KEY, subject: 'SF Safety Map feedback', message }),
       })
       if (!res.ok) throw new Error(String(res.status))
       setStatus('sent')
@@ -88,7 +88,8 @@ function SearchIcon() {
 
 type Panel = 'none' | 'crimes' | 'time' | 'feedback'
 
-const FEEDBACK_ENDPOINT = 'https://formsubmit.co/ajax/tommyw628@gmail.com'
+const FEEDBACK_ENDPOINT = 'https://api.web3forms.com/submit'
+const FEEDBACK_KEY = 'a3fdefea-9a8a-499b-8b43-6ed5795f1f37'
 
 interface SheetProps {
   meta: Meta
