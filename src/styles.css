@@ -263,6 +263,8 @@ li.open .li-caret { transform: rotate(90deg); }
 .modal p { margin: 0; }
 .modal a { color: var(--amber); }
 .modal-close { position: absolute; top: 12px; right: 14px; }
+.modal-footnote { margin-top: 12px !important; font-size: 11px; color: var(--text-dim); }
+.modal-footnote a { color: var(--text-dim); }
 
 /* ---------- maplibre tweaks ---------- */
 /* Attribution lives in the About modal (count chip) instead. */

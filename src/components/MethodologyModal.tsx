@@ -16,6 +16,11 @@ export default function MethodologyModal({ total, onClose }: Props) {
           </a>
           , refreshed nightly. Brighter means more incidents nearby.
         </p>
+        <p className="modal-footnote">
+          Basemap © <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a> ·
+          © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors ·{' '}
+          <a href="https://github.com/ZihuiTommyWang/sf-safety-map" target="_blank" rel="noreferrer">open source</a>
+        </p>
       </div>
     </div>
   )
