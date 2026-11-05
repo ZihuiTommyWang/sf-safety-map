@@ -20,40 +20,38 @@
     <style>
       :root { color-scheme: dark; }
       html, body { height: 100%; }
-      body { margin: 0; background: #101216; color: #eceef0; overflow: hidden;
+      body { margin: 0; background: #101216; color: #eceef0; box-sizing: border-box;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        display: flex; align-items: center; justify-content: center; }
-      .stars { position: fixed; inset: 0; pointer-events: none; }
-      .stars i { position: absolute; border-radius: 50%; background: #ffb84d; }
-      .inner { position: relative; text-align: center; padding: 20px; }
-      h1 { font-size: 34px; letter-spacing: -0.6px; margin: 0 0 8px; }
-      .sub { color: #8e949b; font-size: 15px; margin: 0 0 40px; }
-      .btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-      .btns a { background: #ffb84d; color: #101216; font-weight: 600; text-decoration: none;
-        padding: 13px 26px; border-radius: 10px; font-size: 15px; }
-      .btns a.alt { background: transparent; color: #ffb84d; border: 1px solid #ffb84d; }
-      .soon { margin-top: 40px; color: #8e949b; font-size: 13px; letter-spacing: 0.3px; }
+        display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+      h1 { font-size: 26px; letter-spacing: -0.4px; margin: 0 0 4px; }
+      .sub { color: #8e949b; font-size: 14px; margin: 0 0 28px; }
+      .cards { display: flex; flex-direction: column; gap: 12px; width: min(380px, 100%); }
+      a.card { display: flex; align-items: center; gap: 14px; background: #191c21;
+        border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 16px 18px;
+        color: #eceef0; text-decoration: none; }
+      a.card:hover { border-color: #ffb84d; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; background: #ffb84d;
+        box-shadow: 0 0 12px 3px rgba(255, 184, 77, 0.45); flex: none; }
+      .card b { display: block; font-size: 16px; }
+      .card span { color: #8e949b; font-size: 12.5px; }
+      .ghost { display: flex; align-items: center; gap: 14px; border: 1px dashed rgba(255, 255, 255, 0.14);
+        border-radius: 10px; padding: 16px 18px; color: #8e949b; font-size: 14px; }
+      .ghost i { width: 10px; height: 10px; border-radius: 50%; border: 1px dashed #8e949b; flex: none; }
     </style>
   </head>
   <body>
-    <div class="stars" id="stars"></div>
-    <main class="inner">
-      <h1>City Safety Map</h1>
-      <p class="sub">Every dot is a real police report.</p>
-      <nav class="btns">
-        <a href="/sf/">San Francisco</a>
-        <a href="/nyc/" class="alt">New York City</a>
-      </nav>
-      <p class="soon">More cities coming soon.</p>
-    </main>
-    <script>
-      var html = '';
-      for (var i = 0; i < 140; i++) {
-        var s = (Math.random() * 2.2 + 0.8).toFixed(1);
-        html += '<i style="left:' + (Math.random() * 100).toFixed(1) + '%;top:' + (Math.random() * 100).toFixed(1) +
-          '%;width:' + s + 'px;height:' + s + 'px;opacity:' + (Math.random() * 0.5 + 0.15).toFixed(2) + '"></i>';
-      }
-      document.getElementById('stars').innerHTML = html;
-    </script>
+    <h1>City Safety Map</h1>
+    <p class="sub">Real police reports. Free, no ads, no tracking.</p>
+    <nav class="cards">
+      <a class="card" href="/sf/">
+        <span class="dot"></span>
+        <span><b>San Francisco</b><span>150,000+ incidents · updated nightly</span></span>
+      </a>
+      <a class="card" href="/nyc/">
+        <span class="dot"></span>
+        <span><b>New York City</b><span>950,000+ incidents · updated quarterly</span></span>
+      </a>
+      <div class="ghost"><i></i>More cities coming soon</div>
+    </nav>
   </body>
 </html>
