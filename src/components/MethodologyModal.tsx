@@ -48,6 +48,15 @@ export default function MethodologyModal({ open, onClose, dataThrough }: Props) 
           areas simply report more.
         </p>
         <p>Free, open source, no ads, no tracking.</p>
+        <p>
+          Also available:{' '}
+          {nyc ? (
+            <a href="https://citysafetymap.com/sf/">San Francisco Safety Map</a>
+          ) : (
+            <a href="https://citysafetymap.com/nyc/">New York Safety Map</a>
+          )}{' '}
+          · <a href="https://citysafetymap.com/">all cities</a>
+        </p>
         <p className="modal-footnote">
           Basemap © <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a> ·
           © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>
